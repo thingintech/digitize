@@ -108,10 +108,14 @@ interface ProfileContextType {
   menus: BusinessMenu[];
   qrCode: QRCode | null;
   loading: boolean;
+  isInitialLoad: boolean;
   error: string | null;
 
   /** Upserts (partial) business profile fields. */
   updateProfile: (data: UpdateProfilePayload) => Promise<void>;
+
+  /** Uploads a logo file to Storage and updates business.logo_url. */
+  uploadLogo: (file: File) => Promise<string | null>;
 
   /** Uploads a menu file to Storage, saves record to business_menus. */
   uploadMenu: (file: File, label: string) => Promise<BusinessMenu | null>;
@@ -176,7 +180,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [business, setBusiness] = useState<Business | null>(null);
   const [menus, setMenus] = useState<BusinessMenu[]>([]);
   const [qrCode, setQrCode] = useState<QRCode | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!user); // Start loading if user exists
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // ── Fetchers ──────────────────────────────────────────────────────────────
@@ -236,8 +241,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       if (biz) {
         const [menuList, qr] = await Promise.all([
-          fetchMenus(biz.id),
-          fetchQRCode(biz.id),
+          fetchMenus(biz.id).catch(() => []),
+          fetchQRCode(biz.id).catch(() => null),
         ]);
         setMenus(menuList);
         setQrCode(qr);
@@ -248,6 +253,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       console.error('[ProfileContext] loadAll error:', err);
     } finally {
       setLoading(false);
+      setIsInitialLoad(false);
     }
   }, [fetchBusiness, fetchMenus, fetchQRCode]);
 
@@ -289,6 +295,38 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
     // Update local state optimistically
     setBusiness(prev => prev ? { ...prev, ...data, slug } : prev);
+  }, [business]);
+
+  const uploadLogo = useCallback(async (file: File): Promise<string | null> => {
+    if (!business) throw new Error('No business found');
+
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
+    const storagePath = `${business.id}/logo.${ext}`;
+
+    // 1. Upload to logos bucket
+    const { error: uploadError } = await supabase.storage
+      .from('logos')
+      .upload(storagePath, file, { upsert: true, contentType: file.type });
+
+    if (uploadError) throw uploadError;
+
+    // 2. Get public URL
+    const { data: urlData } = supabase.storage
+      .from('logos')
+      .getPublicUrl(storagePath);
+    
+    const publicUrl = urlData.publicUrl;
+
+    // 3. Update business record
+    const { error: dbError } = await supabase
+      .from('businesses')
+      .update({ logo_url: publicUrl })
+      .eq('id', business.id);
+
+    if (dbError) throw dbError;
+
+    setBusiness(prev => prev ? { ...prev, logo_url: publicUrl } : prev);
+    return publicUrl;
   }, [business]);
 
   const uploadMenu = useCallback(async (
@@ -441,8 +479,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     menus,
     qrCode,
     loading,
+    isInitialLoad,
     error,
     updateProfile,
+    uploadLogo,
     uploadMenu,
     deleteMenu,
     generateQR,

@@ -1,34 +1,33 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button } from '../components/ui';
 import { ArrowUpRight, ArrowDownRight, Users, QrCode, Utensils, Star, Smartphone } from 'lucide-react';
 import { supabase } from '../../utils/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../context/ProfileContext';
 import { toast } from 'sonner';
 
 export function DashboardOverview() {
+  const navigate = useNavigate();
   const { user } = useAuth();
+  const { business, loading: profileLoading } = useProfile();
   const [stats, setStats] = useState([
     { title: 'Total Scans', value: '0', change: '0%', positive: true, icon: QrCode },
     { title: 'Active Menu Items', value: '0', change: '0', positive: true, icon: Utensils },
-    { title: 'Customer Reviews', value: '4.8', change: '0', positive: true, icon: Star },
+    { title: 'Customer Reviews', value: '4.8', change: '4.8', positive: true, icon: Star },
     { title: 'Unique Visitors', value: '0', change: '0%', positive: true, icon: Users },
   ]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchStats() {
-      if (!user) return;
+      if (!user || !business) {
+        if (!profileLoading) setLoading(false);
+        return;
+      }
       
       try {
-        // 1. Get business ID
-        const { data: memberData } = await supabase
-          .from('business_members')
-          .select('business_id, business:businesses(slug)')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!memberData) return;
-        const bId = memberData.business_id;
+        const bId = business.id;
 
         // 2. Fetch Item Count
         const { count: itemCount } = await supabase
@@ -63,10 +62,12 @@ export function DashboardOverview() {
       }
     }
 
-    fetchStats();
-  }, [user]);
+    if (!profileLoading) {
+      fetchStats();
+    }
+  }, [user, business, profileLoading]);
 
-  if (loading) {
+  if (loading || profileLoading) {
     return (
       <div className="h-64 flex items-center justify-center">
         <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
@@ -153,21 +154,21 @@ export function DashboardOverview() {
             <CardDescription>Common tasks to manage your store</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Button variant="outline" className="w-full justify-start h-auto py-3 px-4 text-left" onClick={() => window.location.href='/dashboard/menu'}>
+            <Button variant="outline" className="w-full justify-start h-auto py-3 px-4 text-left" onClick={() => navigate('/dashboard/menu')}>
               <Utensils className="w-5 h-5 mr-3 text-slate-400" />
               <div>
                 <p className="font-medium text-slate-900 dark:text-white">Add Menu Item</p>
                 <p className="text-xs text-slate-500">Create a new dish or drink</p>
               </div>
             </Button>
-            <Button variant="outline" className="w-full justify-start h-auto py-3 px-4 text-left" onClick={() => window.location.href='/dashboard/qr'}>
+            <Button variant="outline" className="w-full justify-start h-auto py-3 px-4 text-left" onClick={() => navigate('/dashboard/qr')}>
               <QrCode className="w-5 h-5 mr-3 text-slate-400" />
               <div>
                 <p className="font-medium text-slate-900 dark:text-white">Print QR Code</p>
                 <p className="text-xs text-slate-500">Download high-res PDF</p>
               </div>
             </Button>
-            <Button variant="outline" className="w-full justify-start h-auto py-3 px-4 text-left" onClick={() => window.location.href='/dashboard/support'}>
+            <Button variant="outline" className="w-full justify-start h-auto py-3 px-4 text-left" onClick={() => navigate('/dashboard/support')}>
               <Star className="w-5 h-5 mr-3 text-slate-400" />
               <div>
                 <p className="font-medium text-slate-900 dark:text-white">Help & Support</p>

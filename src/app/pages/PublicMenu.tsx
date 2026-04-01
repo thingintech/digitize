@@ -7,7 +7,9 @@ import { Badge } from "../components/ui";
 
 interface Business {
   id: string; name: string; slug: string; logo_url: string | null;
-  cover_image_url: string | null; city: string | null; whatsapp_number: string | null;
+  description: string | null; primary_color: string | null;
+  cover_image_url: string | null; city: string | null; 
+  phone: string | null; whatsapp_number: string | null;
 }
 interface UploadedMenu {
   id: string; label: string; file_type: "pdf" | "image"; public_url: string;
@@ -42,7 +44,7 @@ export function PublicMenu() {
 
     const { data: biz, error } = await supabase
       .from("businesses")
-      .select("id,name,slug,logo_url,cover_image_url,city,whatsapp_number")
+      .select("id,name,slug,logo_url,cover_image_url,city,whatsapp_number,description,phone,primary_color")
       .eq("slug", slug)
       .single();
 
@@ -124,11 +126,19 @@ export function PublicMenu() {
             <div className="flex items-center gap-3 text-sm opacity-90 font-medium">
               <span className="flex items-center"><Star className="w-3.5 h-3.5 text-yellow-400 mr-1 fill-yellow-400" />4.8</span>
               <span className="w-1 h-1 bg-white/50 rounded-full" />
-              <span className="flex items-center"><MapPin className="w-3.5 h-3.5 mr-1" />{business.city ?? "Location"}</span>
+              <a href={`tel:${business.phone}`} className="flex items-center hover:underline italic"><MapPin className="w-3.5 h-3.5 mr-1" />{business.city ?? "Location"}</a>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Description / About */}
+      {business.description && (
+        <div className="px-6 py-6 bg-white border-b border-slate-100">
+           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Our Story</h3>
+           <p className="text-slate-600 leading-relaxed text-sm">{business.description}</p>
+        </div>
+      )}
 
       {/* Uploaded menu tabs (PDF / image) */}
       {showUploadedMenu && (
@@ -217,7 +227,8 @@ export function PublicMenu() {
         <div className="fixed bottom-6 inset-x-0 mx-auto max-w-md px-4 z-50">
           <a href={`https://wa.me/${business.whatsapp_number.replace(/\D/g,"")}`}
             target="_blank" rel="noopener noreferrer"
-            className="w-full bg-[#25D366] text-white font-bold py-4 rounded-2xl shadow-lg shadow-green-500/30 flex items-center justify-center gap-3">
+            style={{ backgroundColor: business.primary_color || '#25D366' }}
+            className="w-full text-white font-bold py-4 rounded-2xl shadow-lg flex items-center justify-center gap-3 active:scale-95 transition-transform">
             <MessageCircle className="w-6 h-6" />Order via WhatsApp
           </a>
         </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { motion, AnimatePresence } from "motion/react";
 import { useProfile } from "../context/ProfileContext";
 import { ProfileForm } from "../components/qr/ProfileForm";
@@ -13,7 +14,8 @@ const STEPS = [
 ];
 
 export function QRCodes() {
-  const { business, menus, qrCode, updateProfile } = useProfile();
+  const navigate = useNavigate();
+  const { business, menus, qrCode, updateProfile, isInitialLoad, loading } = useProfile();
 
   // Resume from last saved onboarding step
   const [step, setStep] = useState<number>(business?.onboarding_step ?? 1);
@@ -35,6 +37,28 @@ export function QRCodes() {
     if (from === 2) return menus.length > 0;
     return true;
   };
+
+  if (isInitialLoad || (loading && !business)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-slate-500 mt-4 font-medium animate-pulse">Syncing QR settings...</p>
+      </div>
+    );
+  }
+
+  if (!business) {
+    return (
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-12 text-center max-w-2xl mx-auto mt-10">
+         <div className="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+           <QrCodeIcon className="w-10 h-10 text-slate-400" />
+         </div>
+         <h2 className="text-2xl font-bold text-slate-900 mb-2">Connect Your Business</h2>
+         <p className="text-slate-600 mb-8">We couldn't find a business profile. Complete your setup to generate your custom QR code.</p>
+         <button onClick={() => navigate('/dashboard')} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold">Start Setup</button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

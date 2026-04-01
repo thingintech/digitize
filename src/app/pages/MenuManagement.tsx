@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, Button, Input, LoadingSpinner } from '../components/ui';
 import { Plus, UploadCloud, Edit2, Trash2, SwitchCamera, Image as ImageIcon, ChevronLeft, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -9,6 +10,7 @@ import { toast } from 'sonner';
 
 export function MenuManagement() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { business, loading: profileLoading } = useProfile();
   
   const [activeTab, setActiveTab] = useState<'upload' | 'items' | 'simple-form'>('upload');
@@ -168,7 +170,7 @@ export function MenuManagement() {
          </div>
          <h2 className="text-2xl font-bold text-slate-900 mb-2">Setup Your Business First</h2>
          <p className="text-slate-600 mb-8">We couldn't find a business profile linked to your account. Please complete your registration first.</p>
-         <Button onClick={() => window.location.href = '/dashboard/selection'}>Setup Business Profile</Button>
+         <button onClick={() => navigate('/dashboard')} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold">Start Setup</button>
       </div>
     );
   }

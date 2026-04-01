@@ -4,9 +4,12 @@ import { LayoutDashboard, FileText, QrCode, MapPin, BarChart3, Settings, Bell, L
 import { Input, Button } from '../components/ui';
 import logoImg from '../../assets/621512a35355742a817b6afc8fd95aa05e5b4349.png';
 import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../context/ProfileContext';
+import { OnboardingWizard } from '../components/OnboardingWizard';
 
 export function DashboardLayout() {
-  const { profile, user, signOut, loading } = useAuth();
+  const { profile, user, signOut, loading: authLoading } = useAuth();
+  const { isInitialLoad: profileLoading } = useProfile();
   const navigate = useNavigate();
 
   const navItems = [
@@ -23,10 +26,13 @@ export function DashboardLayout() {
     navigate('/');
   };
 
-  if (loading) {
+  if (authLoading || (user && profileLoading)) {
     return (
-      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-        <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 transition-colors">
+         <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm font-medium text-slate-500 animate-pulse">Syncing your business profile...</p>
+         </div>
       </div>
     );
   }
@@ -115,6 +121,8 @@ export function DashboardLayout() {
             <Outlet />
           </div>
         </div>
+
+        <OnboardingWizard />
       </main>
     </div>
   );

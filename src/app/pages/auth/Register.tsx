@@ -61,8 +61,8 @@ export function Register() {
         });
       }
 
-      // Automatically redirect to service selection
-      navigate('/dashboard/selection');
+      // Automatically redirect to dashboard where onboarding wizard will handle the rest
+      navigate('/dashboard');
     }
   };
 
