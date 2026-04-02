@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { supabase } from '../../../utils/supabase';
+import { useProfile } from '../../context/ProfileContext';
+import { toast } from 'sonner';
 
 export function Register() {
   const [businessName, setBusinessName] = useState('');
@@ -9,60 +11,64 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { refreshProfile } = useProfile();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Step 1: Sign up the user via Supabase Auth
-    // The handle_new_user trigger in Postgres will auto-create their profile
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: businessName, // Store business name as their display name for now
+    try {
+      // Step 1: Sign up the user via Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: businessName,
+          }
         }
-      }
-    });
+      });
 
-    if (authError) {
-      setError(authError.message);
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Step 2: Create their new business
+        const slug = businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        
+        const { data: bData, error: bError } = await supabase
+          .from('businesses')
+          .insert({
+            name: businessName,
+            slug: slug + '-' + Math.floor(Math.random() * 1000),
+            is_active: true,
+            is_published: true,
+          })
+          .select()
+          .single();
+
+        if (bError) throw bError;
+
+        if (bData) {
+          // Step 3: Link them as 'owner'
+          const { error: mError } = await supabase.from('business_members').insert({
+            business_id: bData.id,
+            user_id: authData.user.id,
+            role: 'owner'
+          });
+          if (mError) throw mError;
+        }
+
+        // Step 4: Refresh core context before entering the dashboard
+        // This ensures useProfile() has the business ID ready immediately
+        await refreshProfile();
+        toast.success("Welcome! Your business is ready.");
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message || "Registration failed");
+    } finally {
       setLoading(false);
-      return;
-    }
-
-    if (authData.user) {
-      // Step 2: Create their new business in the database
-      // Generating a simple slug from the business name
-      const slug = businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
-      
-      const { data: bData, error: bError } = await supabase
-        .from('businesses')
-        .insert({
-          name: businessName,
-          slug: slug + '-' + Math.floor(Math.random() * 1000), // Ensure unique slug
-          is_active: true,
-          is_published: true,
-        })
-        .select()
-        .single();
-
-      if (bError) {
-        console.error("Failed to setup business automatically:", bError);
-        // We won't block them from entering the app, they can setup later
-      } else if (bData) {
-        // Step 3: Link them as the 'owner' of this newly created business
-        await supabase.from('business_members').insert({
-          business_id: bData.id,
-          user_id: authData.user.id,
-          role: 'owner'
-        });
-      }
-
-      // Automatically redirect to dashboard where onboarding wizard will handle the rest
-      navigate('/dashboard');
     }
   };
 

@@ -19,37 +19,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Consolidated listener for all auth events
     let isMounted = true;
 
     const initializeAuth = async () => {
-      // 1. Check existing session first
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      
-      if (!isMounted) return;
+      try {
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
 
-      if (initialSession) {
-        setSession(initialSession);
-        setUser(initialSession.user);
-        await fetchProfile(initialSession.user.id);
-      } else {
-        setLoading(false);
+        if (initialSession) {
+          setSession(initialSession);
+          setUser(initialSession.user);
+          const p = await fetchProfile(initialSession.user.id);
+          if (isMounted) setProfile(p);
+        }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
 
     initializeAuth();
 
-    // 2. Listen for future auth changes (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!isMounted) return;
 
-      // Only re-fetch profile if the session has actually changed or on login
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Set loading while we fetch core profile data for identity
+        setLoading(true); 
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id);
+          const p = await fetchProfile(currentSession.user.id);
+          if (isMounted) setProfile(p);
         }
+        setLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
@@ -73,11 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
         
       if (error) throw error;
-      setProfile(data);
+      return data;
     } catch (err) {
-      console.error("Error fetching profile:", err);
-    } finally {
-      setLoading(false);
+      console.error("Error fetching user profile:", err);
+      return null;
     }
   }
 
