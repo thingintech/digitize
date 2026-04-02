@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { supabase } from '../../../utils/supabase';
+import { useAuth } from '../../context/AuthContext';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -8,6 +9,13 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { session } = useAuth();
+
+  React.useEffect(() => {
+    if (session) {
+      navigate('/dashboard');
+    }
+  }, [session, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +36,10 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center gradient-background p-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-sm w-full">
         <div className="text-center mb-6">
+          <img src="/assets/images/logo/logo-ellipse-0.5x.png" alt="Logo" className="w-24 h-24 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
           <p className="text-slate-500 mt-1">Log in to manage your menu</p>
         </div>

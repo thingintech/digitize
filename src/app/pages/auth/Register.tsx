@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { supabase } from '../../../utils/supabase';
+import { useAuth } from '../../context/AuthContext';
 import { useProfile } from '../../context/ProfileContext';
 import { toast } from 'sonner';
 
@@ -11,7 +12,14 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { session } = useAuth();
   const { refreshProfile } = useProfile();
+
+  React.useEffect(() => {
+    if (session) {
+      navigate('/dashboard');
+    }
+  }, [session, navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +40,13 @@ export function Register() {
 
       if (authError) throw authError;
 
-      if (authData.user) {
+      if (!authData.session) {
+        toast.info("Please check your email to verify your account before logging in.", { duration: 6000 });
+        navigate('/login');
+        return;
+      }
+
+      if (authData.user && authData.session) {
         // Step 2: Create their new business
         const slug = businessName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
         
@@ -57,13 +71,21 @@ export function Register() {
             role: 'owner'
           });
           if (mError) throw mError;
+          
+          // Step 4: Subscribe them as a free account
+          const { error: subError } = await supabase.from('subscriptions').insert({
+            business_id: bData.id,
+            plan: 'free',
+            status: 'active'
+          });
+          if (subError) throw subError;
         }
 
-        // Step 4: Refresh core context before entering the dashboard
+        // Step 5: Refresh core context before entering the dashboard
         // This ensures useProfile() has the business ID ready immediately
         await refreshProfile();
         toast.success("Welcome! Your business is ready.");
-        navigate('/dashboard');
+        navigate('/dashboard/menu');
       }
     } catch (err: any) {
       setError(err.message || "Registration failed");

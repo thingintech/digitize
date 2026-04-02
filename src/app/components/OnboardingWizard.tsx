@@ -11,7 +11,7 @@ import { Utensils, Globe, Check, ArrowRight, Loader2, Upload } from "lucide-reac
 import { toast } from "sonner";
 
 export function OnboardingWizard() {
-  const { business, updateProfile, uploadLogo, uploadMenu, loading } = useProfile();
+  const { business, updateProfile, uploadLogo, uploadMenu } = useProfile();
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -106,9 +106,8 @@ export function OnboardingWizard() {
               {[1, 2, 3, 4].map((s) => (
                 <div
                   key={s}
-                  className={`h-1.5 w-8 rounded-full transition-all ${
-                    s <= step ? "bg-white" : "bg-white/30"
-                  }`}
+                  className={`h-1.5 w-8 rounded-full transition-all ${s <= step ? "bg-white" : "bg-white/30"
+                    }`}
                 />
               ))}
             </div>
@@ -182,8 +181,8 @@ export function OnboardingWizard() {
                   </div>
                 </div>
               </div>
-              <Button 
-                onClick={handleNext} 
+              <Button
+                onClick={handleNext}
                 className="w-full h-12 text-lg font-bold bg-slate-900 hover:bg-slate-800"
                 disabled={isSubmitting}
               >
@@ -197,17 +196,17 @@ export function OnboardingWizard() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Business Name</label>
-                <Input 
-                  value={bizData.name} 
-                  onChange={e => setBizData({...bizData, name: e.target.value})}
+                <Input
+                  value={bizData.name}
+                  onChange={e => setBizData({ ...bizData, name: e.target.value })}
                   placeholder="e.g. Blue Lagoon Cafe"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Short Description</label>
-                <Textarea 
-                  value={bizData.description} 
-                  onChange={e => setBizData({...bizData, description: e.target.value})}
+                <Textarea
+                  value={bizData.description}
+                  onChange={e => setBizData({ ...bizData, description: e.target.value })}
                   placeholder="Tell customers what makes you special..."
                   rows={3}
                 />
@@ -215,23 +214,23 @@ export function OnboardingWizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 dark:text-slate-300">WhatsApp</label>
-                  <Input 
-                    value={bizData.whatsapp} 
-                    onChange={e => setBizData({...bizData, whatsapp: e.target.value})}
+                  <Input
+                    value={bizData.whatsapp}
+                    onChange={e => setBizData({ ...bizData, whatsapp: e.target.value })}
                     placeholder="+1..."
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 dark:text-slate-300">City</label>
-                  <Input 
-                    value={bizData.address} 
-                    onChange={e => setBizData({...bizData, address: e.target.value})}
+                  <Input
+                    value={bizData.address}
+                    onChange={e => setBizData({ ...bizData, address: e.target.value })}
                     placeholder="Cairo"
                   />
                 </div>
               </div>
-              <Button 
-                onClick={handleNext} 
+              <Button
+                onClick={handleNext}
                 className="w-full h-12 mt-2 font-bold bg-slate-900 hover:bg-slate-800"
                 disabled={isSubmitting || !bizData.name}
               >
@@ -242,16 +241,15 @@ export function OnboardingWizard() {
 
           {step === 3 && (
             <div className="space-y-6">
-              <div 
-                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer ${
-                  logoFile ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-purple-400 hover:bg-purple-50"
-                }`}
+              <div
+                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer ${logoFile ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-purple-400 hover:bg-purple-50"
+                  }`}
                 onClick={() => document.getElementById('logo-upload')?.click()}
               >
-                <input 
+                <input
                   id="logo-upload"
-                  type="file" 
-                  className="hidden" 
+                  type="file"
+                  className="hidden"
                   accept="image/*"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLogoFile(e.target.files?.[0] || null)}
                 />
@@ -278,8 +276,8 @@ export function OnboardingWizard() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <Button 
-                  onClick={handleUploadLogo} 
+                <Button
+                  onClick={handleUploadLogo}
                   className="w-full h-12 font-bold bg-slate-900 hover:bg-slate-800"
                   disabled={isSubmitting}
                 >
@@ -291,16 +289,15 @@ export function OnboardingWizard() {
 
           {step === 4 && (
             <div className="space-y-6">
-              <div 
-                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer ${
-                  menuFile ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-purple-400 hover:bg-purple-50"
-                }`}
+              <div
+                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer ${menuFile ? "border-green-500 bg-green-50" : "border-slate-200 hover:border-purple-400 hover:bg-purple-50"
+                  }`}
                 onClick={() => document.getElementById('menu-upload')?.click()}
               >
-                <input 
+                <input
                   id="menu-upload"
-                  type="file" 
-                  className="hidden" 
+                  type="file"
+                  className="hidden"
                   accept="application/pdf,image/*"
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setMenuFile(e.target.files?.[0] || null)}
                 />
@@ -327,17 +324,17 @@ export function OnboardingWizard() {
               </div>
 
               <div className="flex flex-col gap-3">
-                <Button 
-                  onClick={handleUploadMenu} 
+                <Button
+                  onClick={handleUploadMenu}
                   className="w-full h-12 font-bold bg-slate-900 hover:bg-slate-800"
                   disabled={isSubmitting || !menuFile}
                 >
                   {isSubmitting ? <Loader2 className="animate-spin" /> : "Complete Setup"}
                 </Button>
-                <button 
-                   onClick={handleNext}
-                   disabled={isSubmitting}
-                   className="text-slate-400 hover:text-slate-600 text-sm font-medium py-2 transition-colors"
+                <button
+                  onClick={handleNext}
+                  disabled={isSubmitting}
+                  className="text-slate-400 hover:text-slate-600 text-sm font-medium py-2 transition-colors"
                 >
                   Skip for now, I'll do it later
                 </button>

@@ -30,8 +30,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (initialSession) {
           setSession(initialSession);
           setUser(initialSession.user);
+          
+          // Try optimistic cache load for Auth tables
+          const cachedProfile = localStorage.getItem('auth_profile_cache');
+          if (cachedProfile) {
+            try {
+              setProfile(JSON.parse(cachedProfile));
+              setLoading(false); // Unblock UI early!
+            } catch (e) {
+              localStorage.removeItem('auth_profile_cache');
+            }
+          }
+          
           const p = await fetchProfile(initialSession.user.id);
-          if (isMounted) setProfile(p);
+          if (isMounted && p) {
+            setProfile(p);
+            localStorage.setItem('auth_profile_cache', JSON.stringify(p));
+          }
         }
       } catch (err) {
         console.error("Auth initialization error:", err);
@@ -40,25 +55,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initializeAuth();
+    // Safety timeout to prevent infinite auth blocks in case of network drops
+    const authSafetyTimeout = setTimeout(() => {
+      if (isMounted && loading) {
+        console.warn("[AuthContext] Initialization exceeded 4 seconds. Hard unlocking.");
+        setLoading(false);
+      }
+    }, 4000);
+
+    initializeAuth().finally(() => clearTimeout(authSafetyTimeout));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       if (!isMounted) return;
 
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        // Set loading while we fetch core profile data for identity
-        setLoading(true); 
+        const isBackgroundRefresh = event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED';
+        if (!isBackgroundRefresh) setLoading(true); 
+        
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         if (currentSession?.user) {
           const p = await fetchProfile(currentSession.user.id);
-          if (isMounted) setProfile(p);
+          if (isMounted && p) {
+             setProfile(p);
+             localStorage.setItem('auth_profile_cache', JSON.stringify(p));
+          }
         }
-        setLoading(false);
+        
+        if (!isBackgroundRefresh) setLoading(false);
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         setUser(null);
         setProfile(null);
+        localStorage.removeItem('auth_profile_cache');
         setLoading(false);
       }
     });

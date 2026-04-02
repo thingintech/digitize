@@ -26,6 +26,8 @@ import { AdminSubscriptions } from "./pages/admin/AdminSubscriptions";
 
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
+import { PublicBusinessProvider } from "./context/PublicBusinessContext";
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -87,6 +89,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "/:businessSlug",
-    Component: PublicMenu,
+    element: (
+      <PublicBusinessProvider>
+        <PublicMenu />
+      </PublicBusinessProvider>
+    ),
   },
 ]);

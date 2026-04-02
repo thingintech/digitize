@@ -2,13 +2,16 @@ import React from "react";
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { AuthProvider } from "./context/AuthContext";
-import { ProfileProvider, useProfile } from "./context/ProfileContext";
+import {
+  ProfileProvider,
+  // useProfile
+} from "./context/ProfileContext";
 import { Toaster } from "sonner";
-import { LoadingSpinner } from "./components/ui";
+// import { LoadingSpinner } from "./components/ui";
 import { DatabaseDebugger } from "./components/DatabaseDebugger";
 
 function AppContent() {
-  const { isReady } = useProfile();
+  // const { isReady } = useProfile();
 
   // if (!isReady) {
   //   return (
@@ -29,6 +32,7 @@ function AppContent() {
     <>
       <Toaster position="top-center" richColors />
       <DatabaseDebugger />
+      <RouterProvider router={router} />
     </>
   );
 }
@@ -37,7 +41,6 @@ export default function App() {
   return (
     <AuthProvider>
       <ProfileProvider>
-        <RouterProvider router={router} />
         <AppContent />
       </ProfileProvider>
     </AuthProvider>

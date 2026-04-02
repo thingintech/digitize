@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '../components/ui';
-import logoImg from '../../assets/621512a35355742a817b6afc8fd95aa05e5b4349.png';
+import logoImg from '/assets/preview.png';
 
 export function Landing() {
   const navigate = useNavigate();

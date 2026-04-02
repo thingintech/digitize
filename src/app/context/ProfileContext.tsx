@@ -95,6 +95,8 @@ export interface UpdateProfilePayload {
   onboarding_step?: number;
 }
 
+export type ProfileLifecycle = 'idle' | 'booting' | 'syncing' | 'ready' | 'degraded' | 'error';
+
 interface ProfileContextType {
   business: Business | null;
   menus: BusinessMenu[];
@@ -102,6 +104,7 @@ interface ProfileContextType {
   loading: boolean;
   error: string | null;
   isReady: boolean;
+  lifecycle: ProfileLifecycle;
 
   updateProfile: (data: UpdateProfilePayload) => Promise<void>;
   uploadLogo: (file: File) => Promise<string | null>;
@@ -109,9 +112,53 @@ interface ProfileContextType {
   deleteMenu: (menuId: string, storagePath: string) => Promise<void>;
   generateQR: (options?: { foregroundColor?: string; backgroundColor?: string }) => Promise<QRCode | null>;
   refreshProfile: () => Promise<void>;
+
+  // --- Strict Generic Profile API Compat (For Generic Callers) ---
+  user: any;
+  authLoading: boolean;
+  profile: Business | null; // Profile is synonymous with Business in this architecture
+  profileLoading: boolean;
+  isProfileComplete: boolean;
+  missingFields: string[];
+  signOut: () => Promise<void>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getCookie(name: string): string | null {
+  try {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    if (match) return decodeURIComponent(match[2]);
+  } catch {
+    // Ignore malformed cookies
+  }
+  return null;
+}
+
+function setCookie(name: string, value: string, days: number = 7) {
+  const d = new Date();
+  d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = "expires=" + d.toUTCString();
+  document.cookie = name + "=" + encodeURIComponent(value) + ";" + expires + ";path=/;SameSite=Lax";
+}
+
+function eraseCookie(name: string) {
+  document.cookie = name + '=; Max-Age=-99999999; path=/';
+}
+
+function checkCompleteness(biz: Business | null): { complete: boolean, missing: string[] } {
+  if (!biz) return { complete: false, missing: ['business'] };
+  const missing: string[] = [];
+  if (!biz.name) missing.push('name');
+  if (!biz.slug) missing.push('slug');
+  // Consider them strictly incomplete if they haven't set basic brand identity
+  // if (!biz.logo_url) missing.push('logo_url');
+  
+  return {
+    complete: missing.length === 0,
+    missing
+  };
+}
 
 function slugify(name: string): string {
   return name.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
@@ -134,24 +181,63 @@ async function ensureUniqueSlug(base: string, currentId?: string): Promise<strin
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
 
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut: authSignOut } = useAuth();
 
+  const [lifecycle, setLifecycle] = useState<ProfileLifecycle>('idle');
   const [business, setBusiness] = useState<Business | null>(null);
   const [menus, setMenus] = useState<BusinessMenu[]>([]);
   const [qrCode, setQrCode] = useState<QRCode | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAll = useCallback(async (userId: string, isRetry = false) => {
-    setLoading(true);
-    setError(null);
+  // Initialize from cache immediately to prevent blank remounts
+  useEffect(() => {
+    setLifecycle('booting');
+    console.log('[lifecycle] idle → booting');
     try {
-      // 1. Find business membership
-      const { data: memberData, error: memberError } = await supabase
-        .from('business_members')
-        .select('business_id')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const cached = getCookie('app_profile');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        // Validating strict requirements to avoid garbage data
+        const completeness = checkCompleteness(parsed);
+        if (completeness.complete) {
+           setBusiness(parsed);
+           setLoading(false); // Can instantly render UI off cache
+        }
+      }
+    } catch(e) {
+      // Ignored
+    }
+  }, []);
+
+  // Wrapper to aggressively unstick hanging Supabase queries (usually caused by infinite RLS recursion on the DB)
+  const withTimeout = async <T,>(promise: Promise<T>, label: string, ms = 8000): Promise<T> => {
+    let timeoutId: any;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`Database query timed out securely on [${label}]. (Check your Supabase RLS policies for an infinite recursion loop freezing PostgREST)`)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+  };
+
+  const loadAll = useCallback(async (userId: string, isRetry = false, isBackground = false) => {
+    if (!isBackground) {
+      setLoading(true);
+      setLifecycle(prev => {
+        console.log(`[lifecycle] ${prev} → syncing`);
+        return 'syncing';
+      });
+    }
+    if (!isBackground) setError(null);
+    try {
+      // 1. Find business membership (Wrapped with timeout to prevent ghost hangs)
+      const { data: memberData, error: memberError } = await withTimeout(
+        supabase
+          .from('business_members')
+          .select('business_id')
+          .eq('user_id', userId)
+          .maybeSingle() as unknown as Promise<any>,
+        'business_members'
+      );
 
       if (memberError) throw memberError;
 
@@ -161,51 +247,88 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         if (!isRetry) {
           console.log('[ProfileContext] No business found, retrying in 1.5s...');
           await new Promise(resolve => setTimeout(resolve, 1500));
-          return loadAll(userId, true);
+          await loadAll(userId, true, isBackground);
+          return;
         }
         setBusiness(null);
         setMenus([]);
         setQrCode(null);
-        setLoading(false);
-        return;
+        setLifecycle(prev => {
+          console.log(`[lifecycle] ${prev} → ready (no business yet)`);
+          return 'ready';
+        });
+        return; // finally block sets loading=false natively
       }
 
       const businessId = memberData.business_id;
 
       // 2. Parallel fetch of all business resources
-      const [bizRes, menusRes, qrRes] = await Promise.all([
+      const [bizRes, menusRes, qrRes] = await withTimeout(Promise.all([
         supabase.from('businesses').select('*').eq('id', businessId).single(),
         supabase.from('business_menus').select('*').eq('business_id', businessId).order('sort_order', { ascending: true }),
         supabase.from('qr_codes').select('*').eq('business_id', businessId).eq('is_active', true).maybeSingle(),
-      ]);
+      ]) as unknown as Promise<any>, 'Promise.all (businesses, business_menus, qr_codes)');
 
       if (bizRes.error) throw bizRes.error;
-      setBusiness(bizRes.data as Business);
+      const fetchedBiz = bizRes.data as Business;
+      setBusiness(fetchedBiz);
+      setCookie('app_profile', JSON.stringify(fetchedBiz));
+      
       setMenus((menusRes.data ?? []) as BusinessMenu[]);
       setQrCode(qrRes.data as QRCode | null);
+      
+      setLifecycle(prev => {
+        console.log(`[lifecycle] ${prev} → ready`);
+        return 'ready';
+      });
     } catch (err: any) {
       setError(err.message || 'Failed to sync business data');
       console.error('[ProfileContext] bootstrap error:', err);
+      setLifecycle(prev => {
+        console.log(`[lifecycle] ${prev} → error`);
+        return 'error';
+      });
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authLoading) return;
+    // 3s safety timeout to prevent infinite auth blocks
+    let forceUnblockTimeout: any;
+    if (authLoading) {
+       forceUnblockTimeout = setTimeout(() => {
+         console.warn("[ProfileContext] authLoading hung, unlocking context.");
+         if (loading) setLoading(false);
+       }, 3000);
+       return () => clearTimeout(forceUnblockTimeout);
+    }
+    
     if (user) {
-      loadAll(user.id);
+      // If we already have the business for this user, it's a background refresh (e.g. from token refresh)
+      const isBackgroundRefresh = business !== null;
+      loadAll(user.id, false, isBackgroundRefresh);
     } else {
       setBusiness(null);
+      eraseCookie('app_profile');
       setMenus([]);
       setQrCode(null);
+      if (lifecycle !== 'idle' && lifecycle !== 'booting') {
+         setLifecycle(prev => {
+           console.log(`[lifecycle] ${prev} → degraded`);
+           return 'degraded';
+         });
+      }
       setLoading(false);
     }
-  }, [user, authLoading, loadAll]);
+  }, [user, authLoading, loadAll]); // Removed `business` from dependency intentionally to avoid infinite loop on background updates
 
   const refreshProfile = useCallback(async () => {
-    if (user) await loadAll(user.id);
-  }, [user, loadAll]);
+    if (user) {
+      const isBackgroundRefresh = business !== null;
+      await loadAll(user.id, false, isBackgroundRefresh);
+    }
+  }, [user, loadAll, business]);
 
   const updateProfile = useCallback(async (data: UpdateProfilePayload) => {
     if (!business) throw new Error('No business found');
@@ -218,7 +341,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       .update({ ...data, slug, updated_at: new Date().toISOString() })
       .eq('id', business.id);
     if (error) throw error;
-    setBusiness(prev => prev ? { ...prev, ...data, slug } : prev);
+    
+    const nextBiz = { ...business, ...data, slug };
+    setBusiness(nextBiz);
+    setCookie('app_profile', JSON.stringify(nextBiz));
   }, [business]);
 
   const uploadLogo = useCallback(async (file: File): Promise<string | null> => {
@@ -299,11 +425,35 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     return saved;
   }, [business]);
 
-  const isReady = useMemo(() => !authLoading && !loading, [authLoading, loading]);
+  const signOut = useCallback(async () => {
+    setLifecycle('idle');
+    eraseCookie('app_profile');
+    setBusiness(null);
+    await authSignOut();
+  }, [authSignOut]);
+
+  // Unified single condition: The app is definitively "Ready" when auth stops loading,
+  // AND either we don't have a user (guest mode), or if we DO have a user, ProfileContext is done loading their data.
+  const isReady = useMemo(() => {
+    if (authLoading) return false;
+    if (user && loading) return false;
+    return true;
+  }, [authLoading, user, loading]);
+
+  const completeness = checkCompleteness(business);
 
   const value: ProfileContextType = {
-    business, menus, qrCode, loading, error, isReady,
+    business, menus, qrCode, loading, error, isReady, lifecycle,
     updateProfile, uploadLogo, uploadMenu, deleteMenu, generateQR, refreshProfile,
+    
+    // Generic Profile Compliance API Extension
+    user,
+    authLoading,
+    profile: business,
+    profileLoading: loading,
+    isProfileComplete: completeness.complete,
+    missingFields: completeness.missing,
+    signOut
   };
 
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
