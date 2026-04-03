@@ -1,2 +1,11 @@
-# digitize
-Empower your restaurant, cafe, or salon with Smart QR Menus, Google Maps integration, and powerful customer engagement tools.
+
+  # Thingintech - Digital Menu Platform
+
+  This is the thingintech platform for managing digital menus and QR codes. A powerful SaaS solution 
+
+  ## Running the code
+
+  Run `npm i` to install the dependencies.
+
+  Run `npm run dev` to start the development server.
+  

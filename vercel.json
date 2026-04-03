@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/:slug((?!api|_next|assets|favicon|public).*)",
+      "destination": "/$1"
+    }
+  ]
+}
