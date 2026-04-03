@@ -13,7 +13,8 @@ import {
   Menu as MenuIcon,
   X,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Input, Button, LoadingSpinner } from '../components/ui';
@@ -31,8 +32,9 @@ export function DashboardLayout() {
 
   const navItems = [
     { name: 'Overview', path: '/dashboard', icon: LayoutDashboard },
-    { name: 'Menu Editor', path: '/dashboard/menu', icon: FileText },
-    { name: 'QR Space', path: '/dashboard/qr', icon: QrCode },
+    { name: 'Business Profile', path: '/dashboard/profile', icon: User },
+    { name: 'Menu Maker', path: '/dashboard/menu', icon: FileText },
+    { name: 'QR Setup', path: '/dashboard/qr', icon: QrCode },
     { name: 'Analytics', path: '/dashboard/analytics', icon: BarChart3 },
     { name: 'Settings', path: '/dashboard/settings', icon: Settings },
   ];

@@ -7,6 +7,8 @@ import { QRCodes } from "./pages/QRCodes";
 import { MapsSetup } from "./pages/MapsSetup";
 import { Analytics } from "./pages/Analytics";
 import { PublicMenu } from "./pages/PublicMenu";
+import { BusinessProfile } from "./pages/BusinessProfile";
+import { NotFound } from "./pages/NotFound";
 
 // Auth Components
 import { Login } from "./pages/auth/Login";
@@ -58,6 +60,7 @@ export const router = createBrowserRouter([
         element: <DashboardLayout />,
         children: [
           { index: true, Component: DashboardOverview },
+          { path: "profile", Component: BusinessProfile },
           { path: "menu", Component: MenuManagement },
           { path: "qr", Component: QRCodes },
           { path: "integrations", Component: MapsSetup },
@@ -94,5 +97,9 @@ export const router = createBrowserRouter([
         <PublicMenu />
       </PublicBusinessProvider>
     ),
+  },
+  {
+    path: "*",
+    Component: NotFound,
   },
 ]);

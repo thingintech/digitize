@@ -69,6 +69,11 @@ export interface QRCode {
   storage_path: string | null;
   foreground_color: string;
   background_color: string;
+  qr_size?: number;
+  qr_style?: string;
+  qr_frame?: string;
+  logo_url?: string | null;
+  logo_size?: number;
   scan_count: number;
   is_active: boolean;
   created_at: string;
@@ -110,7 +115,7 @@ interface ProfileContextType {
   uploadLogo: (file: File) => Promise<string | null>;
   uploadMenu: (file: File, label: string) => Promise<BusinessMenu | null>;
   deleteMenu: (menuId: string, storagePath: string) => Promise<void>;
-  generateQR: (options?: { foregroundColor?: string; backgroundColor?: string }) => Promise<QRCode | null>;
+  generateQR: (options?: { foregroundColor?: string; backgroundColor?: string; size?: number; style?: 'square' | 'rounded' | 'dots'; logoUrl?: string; logoSize?: number; frame?: string }) => Promise<QRCode | null>;
   refreshProfile: () => Promise<void>;
 
   // --- Strict Generic Profile API Compat (For Generic Callers) ---
@@ -394,12 +399,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setMenus(prev => prev.filter(m => m.id !== menuId));
   }, []);
 
-  const generateQR = useCallback(async (options: { foregroundColor?: string; backgroundColor?: string } = {}): Promise<QRCode | null> => {
+  const generateQR = useCallback(async (options: { foregroundColor?: string; backgroundColor?: string; size?: number; style?: 'square' | 'rounded' | 'dots'; logoUrl?: string; logoSize?: number; frame?: string } = {}): Promise<QRCode | null> => {
     if (!business) throw new Error('No business found');
-    const { foregroundColor = '#0f172a', backgroundColor = '#ffffff' } = options;
+    const { foregroundColor = '#0f172a', backgroundColor = '#ffffff', size = 512, style = 'square', logoUrl, logoSize = 40, frame = 'none' } = options;
     const encodedPath = `/${business.slug}`;
     const storagePath = `${business.id}.png`;
-    const result = await generateQRImage(encodedPath, { foregroundColor, backgroundColor });
+    const result = await generateQRImage(encodedPath, { foregroundColor, backgroundColor, width: size, style, logoUrl, logoSize });
     const { error: uploadError } = await supabase.storage.from('qr-codes').upload(storagePath, result.blob, { upsert: true, contentType: 'image/png' });
     if (uploadError) throw uploadError;
     const { data: urlData } = supabase.storage.from('qr-codes').getPublicUrl(storagePath);
@@ -416,6 +421,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         storage_path: storagePath,
         foreground_color: foregroundColor,
         background_color: backgroundColor,
+        qr_size: size,
+        qr_style: style,
+        qr_frame: frame,
+        logo_url: logoUrl,
+        logo_size: logoSize,
         is_active: true,
       }, { onConflict: 'code' })
       .select().single();
