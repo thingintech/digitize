@@ -1,7 +1,7 @@
 
-  # Design SaaS Platform UI
+  # Thingintech - Digital Menu Platform
 
-  This is a code bundle for Design SaaS Platform UI. The original project is available at https://www.figma.com/design/VbTfMlKKIt5TqliuVVgqt2/Design-SaaS-Platform-UI.
+  This is the thingintech platform for managing digital menus and QR codes. A powerful SaaS solution 
 
   ## Running the code
 
