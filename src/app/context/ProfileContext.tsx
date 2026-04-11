@@ -37,6 +37,10 @@ export interface Business {
   state: string | null;
   postal_code: string | null;
   country: string;
+  timezone: string;
+  currency: string;
+  latitude: number | null;
+  longitude: number | null;
   primary_color: string;
   secondary_color: string;
   is_active: boolean;
@@ -92,6 +96,10 @@ export interface UpdateProfilePayload {
   state?: string;
   postal_code?: string;
   country?: string;
+  timezone?: string;
+  currency?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   primary_color?: string;
   secondary_color?: string;
   logo_url?: string;
@@ -228,13 +236,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!isBackground) {
       setLoading(true);
       setLifecycle(prev => {
-        console.log(`[lifecycle] ${prev} → syncing`);
+        console.log(`[ProfileContext] lifecycle: ${prev} → syncing`);
         return 'syncing';
       });
     }
     if (!isBackground) setError(null);
+
     try {
-      // 1. Find business membership (Wrapped with timeout to prevent ghost hangs)
+      // 1. Find business membership (Timeout critical to prevent RLS freeze)
       const { data: memberData, error: memberError } = await withTimeout(
         supabase
           .from('business_members')
@@ -246,8 +255,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
       if (memberError) throw memberError;
 
-      // 1b. If no business found, but we are inside a new session, try one more time
-      // This handles the small delay in DB triggers during registration
+      let bId: string;
+
+      // 1b. SELF-HEALING: If no business found, handle it
       if (!memberData) {
         if (!isRetry) {
           console.log('[ProfileContext] No business found, retrying in 1.5s...');
@@ -255,48 +265,91 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           await loadAll(userId, true, isBackground);
           return;
         }
-        setBusiness(null);
-        setMenus([]);
-        setQrCode(null);
-        setLifecycle(prev => {
-          console.log(`[lifecycle] ${prev} → ready (no business yet)`);
-          return 'ready';
+
+        // --- NEW AUTO-INIT LOGIC ---
+        // If we reach here, the DB trigger DEFINITIVELY failed. We fix it now.
+        console.warn('[ProfileContext] Auto-initializing missing business row...');
+        const placeholderName = user?.email?.split('@')[0] || 'My Business';
+        const baseSlug = slugify(placeholderName);
+        const finalSlug = await ensureUniqueSlug(baseSlug);
+
+        // A. Create Business
+        const { data: newBiz, error: createBizErr } = await supabase.from('businesses').insert({
+          name: placeholderName,
+          slug: finalSlug,
+          is_active: true,
+          is_published: false,
+          onboarding_step: 1
+        }).select().single();
+        if (createBizErr) throw createBizErr;
+
+        // B. Create Membership
+        const { error: createMemErr } = await supabase.from('business_members').insert({
+          business_id: newBiz.id,
+          user_id: userId,
+          role: 'owner'
         });
-        return; // finally block sets loading=false natively
+        if (createMemErr) throw createMemErr;
+
+        bId = newBiz.id;
+      } else {
+        bId = memberData.business_id;
       }
 
-      const businessId = memberData.business_id;
-
-      // 2. Parallel fetch of all business resources
+      // 2. Parallel fetch of core resources
       const [bizRes, menusRes, qrRes] = await withTimeout(Promise.all([
-        supabase.from('businesses').select('*').eq('id', businessId).single(),
-        supabase.from('business_menus').select('*').eq('business_id', businessId).order('sort_order', { ascending: true }),
-        supabase.from('qr_codes').select('*').eq('business_id', businessId).eq('is_active', true).maybeSingle(),
-      ]) as unknown as Promise<any>, 'Promise.all (businesses, business_menus, qr_codes)');
+        supabase.from('businesses').select('*').eq('id', bId).single(),
+        supabase.from('business_menus').select('*').eq('business_id', bId).order('sort_order', { ascending: true }),
+        supabase.from('qr_codes').select('*').eq('business_id', bId).eq('is_active', true).maybeSingle(),
+      ]) as unknown as Promise<any>, 'Parallel Fetch (biz, menus, qr)');
 
       if (bizRes.error) throw bizRes.error;
       const fetchedBiz = bizRes.data as Business;
+      
       setBusiness(fetchedBiz);
-      setCookie('app_profile', JSON.stringify(fetchedBiz));
-      
       setMenus((menusRes.data ?? []) as BusinessMenu[]);
-      setQrCode(qrRes.data as QRCode | null);
+      setCookie('app_profile', JSON.stringify(fetchedBiz));
+
+      // 3. AUTO-GENERATE QR if missing (CRITICAL FIX)
+      if (!qrRes.data) {
+        console.log('[ProfileContext] QR missing, auto-generating...');
+        // We call the internal state-aware function directly
+        // Note: we use bId and fetchedBiz specifically
+        const encodedPath = `/${fetchedBiz.slug}`;
+        const storagePath = `${bId}.png`;
+        const qrResult = await generateQRImage(encodedPath, { foregroundColor: '#0f172a', backgroundColor: '#ffffff', width: 512, style: 'square' });
+        
+        await supabase.storage.from('qr-codes').upload(storagePath, qrResult.blob, { upsert: true, contentType: 'image/png' });
+        const { data: qrUrl } = supabase.storage.from('qr-codes').getPublicUrl(storagePath);
+        
+        const { data: newQR, error: qrErr } = await supabase.from('qr_codes').upsert({
+          business_id: bId,
+          name: `${fetchedBiz.name} QR`,
+          code: fetchedBiz.slug,
+          qr_image_url: qrUrl.publicUrl,
+          destination_url: `${window.location.origin}${encodedPath}`,
+          encoded_path: encodedPath,
+          storage_path: storagePath,
+          foreground_color: '#0f172a',
+          background_color: '#ffffff',
+          is_active: true,
+        }).select().single();
+        
+        if (qrErr) console.error('[ProfileContext] Auto-QR failed:', qrErr);
+        else setQrCode(newQR as QRCode);
+      } else {
+        setQrCode(qrRes.data as QRCode);
+      }
       
-      setLifecycle(prev => {
-        console.log(`[lifecycle] ${prev} → ready`);
-        return 'ready';
-      });
+      setLifecycle('ready');
     } catch (err: any) {
-      setError(err.message || 'Failed to sync business data');
-      console.error('[ProfileContext] bootstrap error:', err);
-      setLifecycle(prev => {
-        console.log(`[lifecycle] ${prev} → error`);
-        return 'error';
-      });
+      setError(err.message || 'Fatal sync error');
+      console.error('[ProfileContext] Fatal Error:', err);
+      setLifecycle('error');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     // 3s safety timeout to prevent infinite auth blocks
@@ -356,9 +409,9 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!business) throw new Error('No business found');
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'png';
     const storagePath = `${business.id}/logo.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('logos').upload(storagePath, file, { upsert: true, contentType: file.type });
+    const { error: uploadError } = await supabase.storage.from('business-logos').upload(storagePath, file, { upsert: true, contentType: file.type });
     if (uploadError) throw uploadError;
-    const { data: urlData } = supabase.storage.from('logos').getPublicUrl(storagePath);
+    const { data: urlData } = supabase.storage.from('business-logos').getPublicUrl(storagePath);
     const publicUrl = urlData.publicUrl;
     const { error: dbError } = await supabase.from('businesses').update({ logo_url: publicUrl }).eq('id', business.id);
     if (dbError) throw dbError;

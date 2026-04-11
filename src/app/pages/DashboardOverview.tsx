@@ -69,8 +69,35 @@ export function DashboardOverview() {
 
   if (loading || profileLoading) {
     return (
-      <div className="h-64 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+      <div className="space-y-8 animate-pulse">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="h-8 bg-slate-200 dark:bg-slate-700 w-64 rounded"></div>
+            <div className="h-4 bg-slate-200 dark:bg-slate-700 w-96 rounded mt-2"></div>
+          </div>
+          <div className="flex gap-3">
+            <div className="h-10 bg-slate-200 dark:bg-slate-700 w-32 rounded"></div>
+            <div className="h-10 bg-slate-200 dark:bg-slate-700 w-36 rounded"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="flex justify-between items-start">
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-200 dark:bg-slate-700 w-24 rounded"></div>
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 w-16 rounded"></div>
+                  </div>
+                  <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
+                </div>
+                <div className="mt-4 flex items-center">
+                  <div className="h-4 bg-slate-200 dark:bg-slate-700 w-32 rounded"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }

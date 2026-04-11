@@ -5,7 +5,7 @@ import { usePublicBusiness, UploadedMenu } from "../context/PublicBusinessContex
 import { NotFound } from "./NotFound";
 
 export function PublicMenu() {
-  const { business, uploadedMenus, categories, menuItems, loading, error } = usePublicBusiness();
+  const { business, template, uploadedMenus, categories, menuItems, loading, error } = usePublicBusiness();
   
   const [activeCategory, setActiveCategory] = useState("All");
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
@@ -22,11 +22,8 @@ export function PublicMenu() {
   const showUploadedMenu = uploadedMenus.length > 0;
   const showStructuredMenu = menuItems.length > 0 && !showUploadedMenu;
 
-  // Retrieve full template settings for this slug
-  const { businessSlug } = (() => { try { return { businessSlug: window.location.pathname.split('/')[1] }; } catch { return { businessSlug: 'local' }; } })();
-  const templateKey = `digitize_template_${businessSlug || 'local'}`;
-  let templateStyles: any = {};
-  try { templateStyles = JSON.parse(localStorage.getItem(templateKey) || '{}'); } catch {}
+  // Retrieve full template settings from context
+  const templateStyles = template || {} as any;
 
   const activeMenu = showUploadedMenu ? (uploadedMenus.find(m => m.id === selectedMenuId) || uploadedMenus[0]) : null;
 
@@ -38,20 +35,20 @@ export function PublicMenu() {
 
   // Theme
   const bgColor = '#2a0f05';
-  const primaryC = templateStyles.primaryColor || '#6b2d0f';
-  const secC = templateStyles.secondaryColor || '#e8c89a';
+  const primaryC = templateStyles.primary_color || '#6b2d0f';
+  const secC = templateStyles.secondary_color || '#e8c89a';
   const accentC = '#3d1a08';
 
   // Social / extras from template
-  const socialFacebook = templateStyles.socialFacebook || '';
-  const socialInstagram = templateStyles.socialInstagram || '';
-  const socialTiktok = templateStyles.socialTiktok || '';
-  const socialWhatsapp = templateStyles.socialWhatsapp || '';
-  const reviewLink = templateStyles.reviewLink || '';
-  const openingHours = templateStyles.openingHours || '';
+  const socialFacebook = templateStyles.social_facebook || '';
+  const socialInstagram = templateStyles.social_instagram || '';
+  const socialTiktok = templateStyles.social_tiktok || '';
+  const socialWhatsapp = templateStyles.social_whatsapp || '';
+  const reviewLink = templateStyles.review_link || '';
+  const openingHours = templateStyles.opening_hours || '';
 
   const hasSocials = socialFacebook || socialInstagram || socialTiktok || socialWhatsapp;
-  const isTemp2 = templateStyles.templateId === 'temp2';
+  const isTemp2 = templateStyles.template_id === 'temp2';
   const normalizedEntries = catEntries.length ? catEntries : [['Menu', menuItems] as [string, typeof menuItems]];
   const hotEntry = normalizedEntries.find(([cat]) => /hot|espresso|coffee|tea/i.test(cat)) || normalizedEntries[0];
   const coldEntry = normalizedEntries.find(([cat]) => /cold|shake|frappe|iced/i.test(cat)) || normalizedEntries[1] || normalizedEntries[0];
@@ -66,14 +63,14 @@ export function PublicMenu() {
 
   if (showLanding && (showStructuredMenu || showUploadedMenu)) {
     if (isTemp2) {
-      const rawName = (templateStyles.templateName || business.name).replace(/\s+/g, " ").trim();
+      const rawName = (templateStyles.template_name || business.name).replace(/\s+/g, " ").trim();
       const nameParts = rawName.split(/\s+/);
       const titleFirst = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : rawName;
       const titleLast = nameParts.length > 1 ? nameParts[nameParts.length - 1] : null;
-      const eyebrow = templateStyles.landingHeadline || "Welcome";
-      const sub = templateStyles.landingSubtext || "Hand-pulled espresso, signature cold brews, and seasonal specials.";
+      const eyebrow = templateStyles.landing_headline || "Welcome";
+      const sub = templateStyles.landing_subtext || "Hand-pulled espresso, signature cold brews, and seasonal specials.";
       const heroImg =
-        templateStyles.landingLogo ||
+        templateStyles.landing_logo ||
         "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80";
       const coldImg = "https://images.unsplash.com/photo-1517701604599-bb29b565090c?auto=format&fit=crop&w=900&q=80";
 
@@ -162,24 +159,24 @@ export function PublicMenu() {
       <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
         <div className="max-w-2xl mx-auto min-h-screen flex flex-col shadow-2xl relative" style={{ backgroundColor: bgColor }}>
            <div className="flex flex-col items-center justify-center px-10 pt-12 pb-6 h-full text-center flex-1">
-             {templateStyles.landingLogo ? (
-               <div className="w-32 h-32 rounded-full border-4 mb-6 overflow-hidden shadow-2xl" style={{ borderColor: primaryC, backgroundColor: accentC }}>
-                 <img src={templateStyles.landingLogo} alt="Logo" className="w-full h-full object-cover" />
-               </div>
-             ) : (
-               <div className="w-32 h-32 rounded-full border-4 mb-6 flex items-center justify-center shadow-2xl" style={{ borderColor: primaryC, backgroundColor: accentC }}>
-                 <Coffee className="w-12 h-12 opacity-40 text-white" />
-               </div>
-             )}
+             {templateStyles.landing_logo ? (
+                <div className="w-32 h-32 rounded-full border-4 mb-6 overflow-hidden shadow-2xl" style={{ borderColor: primaryC, backgroundColor: accentC }}>
+                  <img src={templateStyles.landing_logo} alt="Logo" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className="w-32 h-32 rounded-full border-4 mb-6 flex items-center justify-center shadow-2xl" style={{ borderColor: primaryC, backgroundColor: accentC }}>
+                  <Coffee className="w-12 h-12 opacity-40 text-white" />
+                </div>
+              )}
 
              <div className="text-[10px] tracking-[0.4em] uppercase mb-2" style={{ color: secC }}>
-               {templateStyles.landingHeadline || 'Welcome to'}
+               {templateStyles.landing_headline || 'Welcome to'}
              </div>
              <div className="text-white text-4xl font-bold mb-3 leading-tight" style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.05em' }}>
-               {templateStyles.templateName || business.name}
+               {templateStyles.template_name || business.name}
              </div>
              <div className="text-white/60 text-sm mb-8 max-w-[250px] mx-auto italic">
-               {templateStyles.landingSubtext || 'Explore our delicious offerings'}
+               {templateStyles.landing_subtext || 'Explore our delicious offerings'}
              </div>
 
              {/* 3 Action buttons */}
@@ -241,20 +238,19 @@ export function PublicMenu() {
                      className="w-11 h-11 rounded-full flex items-center justify-center border-2 hover:opacity-80 transition shadow-xl"
                      style={{ borderColor: primaryC, backgroundColor: accentC, color: secC }}>
                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-                   </a>
-                 )}
-               </div>
-             )}
-
-             <div className="absolute bottom-6 inset-x-0 text-center">
-               <p className="text-[9px] opacity-30 text-white font-mono uppercase tracking-widest">Powered by Thing in Tech</p>
+                 </a>
+               )}
              </div>
-           </div>
-        </div>
-      </div>
-    );
-  }
+           )}
 
+           <div className="absolute bottom-6 inset-x-0 text-center">
+             <p className="text-[9px] opacity-30 text-white font-mono uppercase tracking-widest">Powered by Thing in Tech</p>
+           </div>
+         </div>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: bgColor }}>
@@ -295,7 +291,7 @@ export function PublicMenu() {
                   <div className="relative z-10 grid gap-5 md:grid-cols-[1.15fr_1fr]">
                     <div>
                       <h1 className="text-5xl sm:text-6xl leading-[0.95] font-semibold uppercase tracking-wide">
-                        {(templateStyles.templateName || business.name).replace(/\s+/g, " ")}
+                        {(templateStyles.template_name || business.name).replace(/\s+/g, " ")}
                       </h1>
 
                       <div className="mt-6 flex items-center gap-4">
@@ -315,7 +311,7 @@ export function PublicMenu() {
 
                     <div className="relative min-h-[330px] overflow-hidden bg-white/5">
                       <img
-                        src={templateStyles.landingLogo || "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80"}
+                        src={templateStyles.landing_logo || "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=900&q=80"}
                         alt="Hot coffee"
                         className="absolute inset-0 h-full w-full object-cover"
                       />
@@ -389,9 +385,9 @@ export function PublicMenu() {
             {/* ── Header ── */}
             <div style={{position:'relative',zIndex:1,textAlign:'center',padding:'36px 20px 16px'}}>
               {/* Logo */}
-              {templateStyles.landingLogo ? (
+              {templateStyles.landing_logo ? (
                 <div style={{width:72,height:72,borderRadius:'50%',border:'2px solid #d4a97a',backgroundColor:'#3d1a08',margin:'0 auto 12px',overflow:'hidden'}}>
-                  <img src={templateStyles.landingLogo} alt="logo" style={{width:'100%',height:'100%',objectFit:'cover'}} />
+                  <img src={templateStyles.landing_logo} alt="logo" style={{width:'100%',height:'100%',objectFit:'cover'}} />
                 </div>
               ) : (
                 <div style={{width:72,height:72,borderRadius:'50%',border:'2px solid #d4a97a',backgroundColor:'#3d1a08',margin:'0 auto 12px',display:'flex',alignItems:'center',justifyContent:'center'}}>
@@ -400,11 +396,11 @@ export function PublicMenu() {
               )}
               {/* Business name */}
               <h1 style={{color:'#fff',fontSize:'clamp(22px,5vw,34px)',fontWeight:700,fontFamily:'Georgia,serif',letterSpacing:'0.06em',margin:'0 0 4px'}}>
-                {templateStyles.templateName || business.name}
+                {templateStyles.template_name || business.name}
               </h1>
               {/* Subtitle */}
               <p style={{color:'#d4a97a',fontSize:'clamp(9px,2vw,11px)',letterSpacing:'0.35em',textTransform:'uppercase',margin:0}}>
-                • {templateStyles.cafeteriaSubtitle || business.description || 'Cafeteria'} •
+                • {templateStyles.cafeteria_subtitle || business.description || 'Cafeteria'} •
               </p>
               {/* Divider */}
               <div style={{borderTop:'1px solid rgba(212,169,122,0.35)',margin:'18px auto 18px',maxWidth:400}} />
@@ -458,11 +454,11 @@ export function PublicMenu() {
 
             {/* ── Footer ── */}
             <div style={{position:'relative',zIndex:1,borderTop:'1px solid rgba(212,169,122,0.25)',padding:'14px 24px',display:'flex',justifyContent:'space-between',alignItems:'center',maxWidth:760,margin:'0 auto'}}>
-              {templateStyles.footerHandle && (
-                <span style={{color:'#d4a97a',fontSize:'clamp(9px,2vw,11px)',letterSpacing:'0.15em'}}>{templateStyles.footerHandle}</span>
+              {templateStyles.footer_handle && (
+                <span style={{color:'#d4a97a',fontSize:'clamp(9px,2vw,11px)',letterSpacing:'0.15em'}}>{templateStyles.footer_handle}</span>
               )}
-              {templateStyles.footerWebsite && (
-                <span style={{color:'#d4a97a',fontSize:'clamp(9px,2vw,11px)',letterSpacing:'0.15em'}}>{templateStyles.footerWebsite}</span>
+              {templateStyles.footer_website && (
+                <span style={{color:'#d4a97a',fontSize:'clamp(9px,2vw,11px)',letterSpacing:'0.15em'}}>{templateStyles.footer_website}</span>
               )}
             </div>
           </div>

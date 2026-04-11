@@ -286,13 +286,30 @@ $$ LANGUAGE plpgsql;
 -- Function to delete old image when updating
 CREATE OR REPLACE FUNCTION delete_old_storage_object()
 RETURNS TRIGGER AS $$
+DECLARE
+    old_url TEXT;
+    new_url TEXT;
+    col_name TEXT;
+    bucket_and_path TEXT;
 BEGIN
-    IF OLD.image_url IS NOT NULL AND NEW.image_url IS DISTINCT FROM OLD.image_url THEN
-        -- Extract the storage path from the URL and delete
-        -- This is a simplified version, adjust based on your URL structure
-        PERFORM storage.delete_object(
-            split_part(OLD.image_url, '/storage/v1/object/public/', 2)
-        );
+    col_name := TG_ARGV[0];
+    
+    EXECUTE format('SELECT ($1).%I, ($2).%I', col_name, col_name)
+    USING OLD, NEW
+    INTO old_url, new_url;
+
+    IF old_url IS NOT NULL AND (new_url IS NULL OR new_url IS DISTINCT FROM old_url) THEN
+        bucket_and_path := split_part(old_url, '/storage/v1/object/public/', 2);
+        
+        IF bucket_and_path IS NOT NULL AND bucket_and_path != '' THEN
+            BEGIN
+                DELETE FROM storage.objects 
+                WHERE bucket_id = split_part(bucket_and_path, '/', 1)
+                  AND name = substring(bucket_and_path from (position('/' in bucket_and_path) + 1));
+            EXCEPTION WHEN OTHERS THEN
+                RAISE WARNING '[storage_cleanup] Error: %', SQLERRM;
+            END;
+        END IF;
     END IF;
     RETURN NEW;
 END;
@@ -303,18 +320,18 @@ CREATE TRIGGER cleanup_menu_item_image
     BEFORE UPDATE ON menu_items
     FOR EACH ROW
     WHEN (OLD.image_url IS DISTINCT FROM NEW.image_url)
-    EXECUTE FUNCTION delete_old_storage_object();
+    EXECUTE FUNCTION delete_old_storage_object('image_url');
 
 -- Apply trigger to businesses (logo)
 CREATE TRIGGER cleanup_business_logo
     BEFORE UPDATE ON businesses
     FOR EACH ROW
     WHEN (OLD.logo_url IS DISTINCT FROM NEW.logo_url)
-    EXECUTE FUNCTION delete_old_storage_object();
+    EXECUTE FUNCTION delete_old_storage_object('logo_url');
 
 -- Apply trigger to businesses (cover)
 CREATE TRIGGER cleanup_business_cover
     BEFORE UPDATE ON businesses
     FOR EACH ROW
     WHEN (OLD.cover_image_url IS DISTINCT FROM NEW.cover_image_url)
-    EXECUTE FUNCTION delete_old_storage_object();
+    EXECUTE FUNCTION delete_old_storage_object('cover_image_url');

@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DIGITIZE — Execution Plan</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  :root {
+    --bg: #0d0f12;
+    --surface: #141720;
+    --surface2: #1b1f2b;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8eaf0;
+    --muted: #7a7f94;
+    --faint: #3a3f52;
+    --purple: #7c6ff7;
+    --purple-dim: rgba(124,111,247,0.15);
+    --teal: #3ecfb0;
+    --teal-dim: rgba(62,207,176,0.12);
+    --coral: #f07060;
+    --coral-dim: rgba(240,112,96,0.12);
+    --amber: #f0a840;
+    --amber-dim: rgba(240,168,64,0.12);
+    --blue: #5ba8f5;
+    --blue-dim: rgba(91,168,245,0.12);
+    --green: #6dd882;
+    --green-dim: rgba(109,216,130,0.12);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+    padding: 48px 24px 80px;
+  }
+
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    margin-bottom: 40px;
+  }
+
+  .header-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--purple);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .header-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.02em;
+    margin-bottom: 6px;
+  }
+
+  .header-sub {
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .stack-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+
+  .badge-stack {
+    background: var(--surface2);
+    border-color: var(--border2);
+    color: var(--muted);
+  }
+
+  .badge-platform {
+    background: var(--purple-dim);
+    border-color: rgba(124,111,247,0.3);
+    color: var(--purple);
+  }
+
+  /* Execution order */
+  .order-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 32px;
+  }
+
+  .order-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  .order-steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .order-step {
+    font-size: 12px;
+    padding: 4px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    color: var(--text);
+  }
+
+  .order-arrow {
+    color: var(--faint);
+    font-size: 12px;
+  }
+
+  /* Sections */
+  .section {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .section:hover {
+    border-color: var(--border2);
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--surface);
+    transition: background 0.15s;
+  }
+
+  .section-head:hover {
+    background: var(--surface2);
+  }
+
+  .section-num {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .s1 .section-num { background: var(--purple-dim); color: var(--purple); }
+  .s2 .section-num { background: var(--teal-dim); color: var(--teal); }
+  .s3 .section-num { background: var(--coral-dim); color: var(--coral); }
+  .s4 .section-num { background: var(--amber-dim); color: var(--amber); }
+  .s5 .section-num { background: var(--blue-dim); color: var(--blue); }
+  .s6 .section-num { background: var(--green-dim); color: var(--green); }
+
+  .section-info { flex: 1; }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .section-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  .chevron {
+    font-size: 11px;
+    color: var(--faint);
+    transition: transform 0.2s;
+  }
+
+  .chevron.open { transform: rotate(90deg); }
+
+  .section-body {
+    display: none;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+
+  .section-body.open { display: block; }
+
+  /* Tasks */
+  .task {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .task:last-child { border-bottom: none; }
+
+  .task-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+
+  .prio {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 2px 7px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .p-critical { background: rgba(240,112,96,0.15); color: #f07060; border: 1px solid rgba(240,112,96,0.25); }
+  .p-high     { background: rgba(240,168,64,0.12); color: #f0a840; border: 1px solid rgba(240,168,64,0.25); }
+  .p-normal   { background: rgba(109,216,130,0.1); color: #6dd882; border: 1px solid rgba(109,216,130,0.2); }
+
+  .task-body {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  .task-body code {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #b0b8d0;
+  }
+
+  .task-body ul {
+    padding-left: 18px;
+    margin-top: 6px;
+  }
+
+  .task-body li { margin-bottom: 4px; }
+
+  .decision {
+    margin-top: 8px;
+    padding: 7px 11px;
+    border-left: 2px solid var(--purple);
+    background: var(--purple-dim);
+    border-radius: 0 5px 5px 0;
+    font-size: 12px;
+    color: #a09ae8;
+  }
+
+  .decision strong { color: var(--purple); font-weight: 500; }
+
+  /* Footer */
+  .footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--faint);
+    display: flex;
+    justify-content: space-between;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="header-eyebrow">Thing in Tech</div>
+    <div class="header-title">DIGITIZE — Execution Plan</div>
+    <div class="header-sub">SaaS platform stabilization & production readiness roadmap</div>
+    <div class="stack-row">
+      <span class="badge badge-stack">React + Vite</span>
+      <span class="badge badge-stack">Supabase JS</span>
+      <span class="badge badge-stack">Supabase Auth</span>
+      <span class="badge badge-platform">Platform: DIGITIZE (by Thing in Tech)</span>
+    </div>
+  </div>
+
+  <div class="order-block">
+    <div class="order-label">Execution order</div>
+    <div class="order-steps">
+      <span class="order-step">1 — DB schema</span>
+      <span class="order-arrow">→</span>
+      <span class="order-step">2 — Auth + signup</span>
+      <span class="order-arrow">→</span>
+      <span class="order-step">3 — Data layer</span>
+      <span class="order-arrow">→</span>
+      <span class="order-step">4 — Routing</span>
+      <span class="order-arrow">→</span>
+      <span class="order-step">5 — UI/UX</span>
+      <span class="order-arrow">→</span>
+      <span class="order-step">6 — Public menu</span>
+    </div>
+  </div>
+
+  <!-- SECTION 1 -->
+  <div class="section s1">
+    <div class="section-head" onclick="toggle(this)">
+      <div class="section-num">1</div>
+      <div class="section-info">
+        <div class="section-title">Database — SETUP_DB_SCHEMA.sql</div>
+        <div class="section-sub">Single consolidated file, safe for re-runs</div>
+      </div>
+      <div class="chevron">▶</div>
+    </div>
+    <div class="section-body">
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Consolidate all SQL into one file</div>
+        <div class="task-body">
+          Create <code>SETUP_DB_SCHEMA.sql</code> that replaces: <code>schema.sql</code>, <code>qr_service_migration.sql</code>, <code>fix_recursion.sql</code>, <code>persist_migration.sql</code>, <code>storage.sql</code>. Every object must use <code>CREATE ... IF NOT EXISTS</code> and <code>DROP POLICY IF EXISTS</code> before recreating so the file is safely re-runnable on an existing database.
+          <div class="decision"><strong>Decision:</strong> Consolidate + safe re-run (not replace-only). Preserves existing data.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Core table order with correct FKs</div>
+        <div class="task-body">
+          Build order: <code>extensions</code> → <code>businesses</code> → <code>business_members</code> → <code>subscriptions</code> → <code>menu_categories</code> → <code>menu_items</code> → <code>qr_codes</code> → <code>business_menus</code> → <code>menu_templates</code> → <code>analytics_events</code> → <code>business_settings</code>. Add <code>domains</code> table for future subdomain support.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Fix RLS infinite recursion permanently</div>
+        <div class="task-body">
+          Inline the <code>fix_recursion.sql</code> security-definer functions <code>check_user_is_business_member()</code> and <code>check_user_is_business_admin()</code> at the top of the schema, before any policies. All RLS policies on <code>business_members</code>, <code>businesses</code>, <code>menu_categories</code>, <code>menu_items</code> must use these functions — no inline subquery recursion.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Add slug + subdomain columns to businesses</div>
+        <div class="task-body">
+          <code>businesses</code> table must include: <code>slug TEXT UNIQUE NOT NULL</code>, <code>subdomain TEXT UNIQUE</code> (nullable, for future paid plans). Add a <code>UNIQUE INDEX</code> on slug. The public menu URL strategy is <code>yourdomain.com/slug</code> now; <code>subdomain</code> column is reserved but unused until tier upgrade logic is built.
+          <div class="decision"><strong>Decision:</strong> Path-based URLs now (<code>/slug</code>). Subdomain column stored for future paid tier.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Remove all seed/demo data from schema file</div>
+        <div class="task-body">
+          <code>SETUP_DB_SCHEMA.sql</code> must contain zero INSERT statements. Move sample data to a separate <code>DEV_SEED.sql</code> file (clearly marked dev-only, never run in production). Remove <code>seed.sql</code> and <code>persist_seed.sql</code> references from the main flow.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-normal">normal</span> Inline storage bucket setup</div>
+        <div class="task-body">
+          Merge <code>storage.sql</code> bucket creation and RLS policies into <code>SETUP_DB_SCHEMA.sql</code> as the final section. Use <code>ON CONFLICT (id) DO NOTHING</code> on bucket inserts. Required buckets: <code>business-logos</code>, <code>menu-items</code>, <code>qr-codes</code>, <code>menu-uploads</code> (private), <code>menus</code>, <code>avatars</code>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2 -->
+  <div class="section s2">
+    <div class="section-head" onclick="toggle(this)">
+      <div class="section-num">2</div>
+      <div class="section-info">
+        <div class="section-title">Authentication + Registration flow</div>
+        <div class="section-sub">Business name collected at signup, before email confirmation</div>
+      </div>
+      <div class="chevron">▶</div>
+    </div>
+    <div class="section-body">
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Extend signup form — collect business name</div>
+        <div class="task-body">
+          The signup form must have three fields: <code>email</code>, <code>password</code>, <code>business_name</code> (required). Pass <code>business_name</code> as <code>options.data.business_name</code> in <code>supabase.auth.signUp()</code> so it lands in <code>auth.users.raw_user_meta_data</code>.
+          <div class="decision"><strong>Decision:</strong> Collected during signup (before email confirmation), not on a post-login screen.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Auto-create business record on first login</div>
+        <div class="task-body">
+          Create a Supabase Database Function (or Edge Function) triggered on <code>auth.users INSERT</code>. It must: auto-generate a unique <code>slug</code> from <code>business_name</code> (lowercase, hyphenated, deduplicated with suffix if collision), insert into <code>businesses</code>, insert the user as <code>owner</code> in <code>business_members</code>, insert a <code>free</code> subscription into <code>subscriptions</code>. This ensures every authenticated user always has a business record.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Auth state machine — define all possible states</div>
+        <div class="task-body">
+          The frontend must handle exactly four states on login:
+          <ul>
+            <li><strong>Authenticated + business found</strong> → go to dashboard</li>
+            <li><strong>Authenticated + no business</strong> → trigger business creation, then dashboard</li>
+            <li><strong>Authenticated + email unconfirmed</strong> → show confirmation prompt</li>
+            <li><strong>Not authenticated</strong> → redirect to login</li>
+          </ul>
+          Never show a blank screen or infinite spinner in any state.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Redirect logic after login/logout</div>
+        <div class="task-body">
+          After login → <code>/dashboard</code>. After logout → <code>/login</code>. After signup → <code>/dashboard</code> (business was auto-created). Protected routes must redirect unauthenticated users to <code>/login</code>, preserving the intended destination in a <code>redirect</code> query param for post-login redirect.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 3 -->
+  <div class="section s3">
+    <div class="section-head" onclick="toggle(this)">
+      <div class="section-num">3</div>
+      <div class="section-info">
+        <div class="section-title">Data layer — fix the "Loading..." problem</div>
+        <div class="section-sub">Single source of truth, no more localStorage/DB split</div>
+      </div>
+      <div class="chevron">▶</div>
+    </div>
+    <div class="section-body">
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Audit and eliminate localStorage usage</div>
+        <div class="task-body">
+          Search the entire codebase for <code>localStorage</code>. For each usage decide: (a) if it's business/profile data → move to Supabase, (b) if it's UI preference (theme, sidebar state) → keep as localStorage only. Never store business data in localStorage as source of truth. The sidebar showing "Loading..." is caused by business data being fetched from localStorage that doesn't exist — fixed by fetching from Supabase on session load.
+          <div class="decision"><strong>Current problem:</strong> Data is mixed across localStorage + Supabase. Fix: Supabase is the only source of truth for all business data.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Global app context — fetch business on session load</div>
+        <div class="task-body">
+          Create a React context (e.g. <code>BusinessContext</code>) that on <code>supabase.auth.onAuthStateChange</code> fires a single query: fetch user's business + subscription via <code>business_members</code> join. Cache this in context state. Every page reads from context — no page-level business fetches. Context must expose: <code>business</code>, <code>subscription</code>, <code>isLoading</code>, <code>error</code>, <code>refetch()</code>.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Implement fallback / empty states everywhere</div>
+        <div class="task-body">
+          Every page that reads from context must handle three states:
+          <ul>
+            <li><code>isLoading = true</code> → show skeleton UI (not spinner text)</li>
+            <li><code>business = null</code> → show setup prompt with CTA</li>
+            <li><code>business exists</code> → show normal content</li>
+          </ul>
+          System must never crash or show raw errors to users. All API calls wrapped in try/catch with graceful fallback UI.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Workspace sidebar — show real business name</div>
+        <div class="task-body">
+          The sidebar currently shows "Loading..." permanently because it reads from a source that never resolves. Fix: sidebar reads <code>business.name</code> from <code>BusinessContext</code>. Show skeleton during load. Show business name once loaded. The "D" avatar should use the first letter of <code>business.name</code>, not a hardcoded "D".
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4 -->
+  <div class="section s4">
+    <div class="section-head" onclick="toggle(this)">
+      <div class="section-num">4</div>
+      <div class="section-info">
+        <div class="section-title">Routing — audit, fix dead links, add public menu</div>
+        <div class="section-sub">React Router v6, path-based public menu URLs</div>
+      </div>
+      <div class="chevron">▶</div>
+    </div>
+    <div class="section-body">
+      <div class="task">
+        <div class="task-label"><span class="prio p-critical">critical</span> Public menu route — <code>/:slug</code></div>
+        <div class="task-body">
+          Add a public route <code>/:slug</code> that renders the customer-facing menu page. This route must be accessible without authentication. It fetches the business by slug, and the menu template from <code>menu_templates</code>. It renders the correct template (e.g. Cafeteria Dark) with the business's menu categories and items.
+          <div class="decision"><strong>URL strategy:</strong> <code>yourdomain.com/slug</code> (path-based). QR codes encode <code>/slug</code> so domain changes never require reprinting.</div>
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Dashboard route structure</div>
+        <div class="task-body">
+          Verify all six dashboard routes work correctly and match nav links:
+          <ul>
+            <li><code>/dashboard</code> → Overview</li>
+            <li><code>/dashboard/profile</code> → Business Profile</li>
+            <li><code>/dashboard/menu</code> → Menu Maker</li>
+            <li><code>/dashboard/qr</code> → QR Setup</li>
+            <li><code>/dashboard/analytics</code> → Analytics</li>
+            <li><code>/dashboard/settings</code> → Settings</li>
+          </ul>
+          Remove any dead or mismatched route references. Add a <code>404</code> catch-all that redirects to <code>/dashboard</code> for authenticated users or <code>/login</code> for guests.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Auth route guards</div>
+        <div class="task-body">
+          Wrap all <code>/dashboard/*</code> routes in a <code>ProtectedRoute</code> component that checks Supabase session. If no session, redirect to <code>/login?redirect=/dashboard/...</code>. After login, redirect back to the saved path. Public routes (<code>/login</code>, <code>/signup</code>, <code>/:slug</code>) must never require auth.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-normal">normal</span> QR code URL — use encoded path, not localhost</div>
+        <div class="task-body">
+          The QR Setup page currently shows <code>http://localhost:5173/r</code>. Fix: QR codes must encode <code>/{slug}</code> only (the encoded_path column), never a full URL with host. The full URL displayed in the dashboard UI is assembled at render time from <code>window.location.origin + encoded_path</code>. The actual PNG encoded in the QR image must only contain the path.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 5 -->
+  <div class="section s5">
+    <div class="section-head" onclick="toggle(this)">
+      <div class="section-num">5</div>
+      <div class="section-info">
+        <div class="section-title">Frontend UX — dashboard pages</div>
+        <div class="section-sub">Each page connected to real Supabase data</div>
+      </div>
+      <div class="chevron">▶</div>
+    </div>
+    <div class="section-body">
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Business Profile page — save to Supabase</div>
+        <div class="task-body">
+          The "Save Locally" button must be renamed to "Save" and must call <code>supabase.from('businesses').update()</code>, not write to localStorage. On success, call <code>context.refetch()</code> to update the sidebar. Validate required fields (business name) before submitting.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Overview page — real counters from Supabase</div>
+        <div class="task-body">
+          Total Scans, Active Menu Items, Unique Visitors must query <code>analytics_events</code> and <code>menu_items</code>. Customer Reviews stat can remain static (4.8) until a reviews table exists. Recent Activity feed should show last 3 real analytics events. Quick Actions buttons must link to correct routes.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Menu Maker — wire categories and items to DB</div>
+        <div class="task-body">
+          "Add Manually" must open a form that creates a real <code>menu_items</code> record. Template selection (Cafeteria Dark / temp2) must update <code>menu_templates</code> in Supabase. The "Upload Menu File" AI digitization flow can remain as a stub with a "coming soon" state — do not break the page.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> QR Setup — create and persist QR records</div>
+        <div class="task-body">
+          "Create New QR Area" must insert into <code>qr_codes</code> table. Remove "LOCAL DRAFT" badge — QR areas are always persisted to DB. The QR PNG must encode <code>/{slug}</code> only. "Open Menu" button must open <code>/{slug}</code> in a new tab. "Edit QR Style" must update <code>qr_codes</code> columns (<code>foreground_color</code>, <code>background_color</code>, <code>qr_size</code>, <code>qr_style</code>).
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-normal">normal</span> Analytics — connect to analytics_events table</div>
+        <div class="task-body">
+          Scan Activity chart must query <code>analytics_events</code> grouped by day for the selected period (last 7 days default). Popular Items list should query <code>menu_items</code> sorted by view count. Customer Reviews section can remain UI-only until a review integration is built — clearly mark as "sample data" in that case.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-normal">normal</span> Settings — save account + business fields to Supabase</div>
+        <div class="task-body">
+          Owner Name → update <code>auth.users</code> metadata via <code>supabase.auth.updateUser()</code>. Business Name + Website → update <code>businesses</code> table. Password change → use <code>supabase.auth.updateUser({ password })</code>. Timezone/Language preferences → store in <code>business_settings</code> as key/value. All saves must show a success/error toast.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 6 -->
+  <div class="section s6">
+    <div class="section-head" onclick="toggle(this)">
+      <div class="section-num">6</div>
+      <div class="section-info">
+        <div class="section-title">Public menu page — customer-facing /:slug</div>
+        <div class="section-sub">No auth required, renders business menu by slug</div>
+      </div>
+      <div class="chevron">▶</div>
+    </div>
+    <div class="section-body">
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Fetch business and menu by slug</div>
+        <div class="task-body">
+          On mount, query: <code>businesses</code> by slug (must be <code>is_published = true</code>), then <code>menu_templates</code> by <code>(business_id, slug)</code>, then <code>menu_categories</code> + <code>menu_items</code> by <code>business_id</code>. If business not found or not published → show a clean 404 page (not a crash). This query is unauthenticated — relies on the public RLS policies set up in the schema.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-high">high</span> Render correct template (Cafeteria Dark as default)</div>
+        <div class="task-body">
+          Read <code>menu_templates.template_id</code> and render the matching template component. Cafeteria Dark is the default if no template is set. Template must use <code>primary_color</code>, <code>secondary_color</code>, <code>cafeteria_subtitle</code>, <code>footer_handle</code>, <code>footer_website</code> from the <code>menu_templates</code> row.
+        </div>
+      </div>
+      <div class="task">
+        <div class="task-label"><span class="prio p-normal">normal</span> Track analytics event on page load</div>
+        <div class="task-body">
+          On public menu page load, fire an unauthenticated insert to <code>analytics_events</code> with <code>event_type = 'menu_view'</code> and the <code>business_id</code>. Use Supabase's anon key for this — no user auth needed. This powers the scan/view counters in the dashboard.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>DIGITIZE — Thing in Tech</span>
+    <span>digitize_execution_plan.html</span>
+  </div>
+
+</div>
+
+<script>
+function toggle(head) {
+  const body = head.nextElementSibling;
+  const chevron = head.querySelector('.chevron');
+  const open = body.classList.toggle('open');
+  chevron.classList.toggle('open', open);
+}
+</script>
+</body>
+</html>

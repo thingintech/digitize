@@ -22,6 +22,8 @@ export function MenuManagement() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [isPublishing, setIsPublishing] = useState(false);
+
   // Simple Form
   const [categoryName, setCategoryName] = useState('');
   const [itemName, setItemName] = useState('');
@@ -147,6 +149,107 @@ export function MenuManagement() {
   const loadMenuData = () => {
     try { return JSON.parse(localStorage.getItem(menuDataKey) || '{"items":[],"categories":[]}'); }
     catch { return { items: [], categories: [] }; }
+  };
+
+  const publishToSupabase = async () => {
+    if (!business?.id) {
+      toast.error("No active business found to publish to.");
+      return;
+    }
+
+    setIsPublishing(true);
+    const publishToast = toast.loading("Publishing your menu to the cloud...");
+
+    try {
+      // 1. Mark business as published
+      const { error: bizError } = await supabase
+        .from('businesses')
+        .update({ is_published: true })
+        .eq('id', business.id);
+
+      if (bizError) throw bizError;
+
+      // 2. Sync Template
+      const templatePayload = {
+        business_id: business.id,
+        slug: business.slug,
+        template_id: selectedTemplate.id,
+        template_name: templateName,
+        primary_color: templatePrimary,
+        secondary_color: templateSecondary,
+        cafeteria_subtitle: cafeteriaSubtitle,
+        footer_handle: footerHandle,
+        footer_website: footerWebsite,
+        landing_headline: landingHeadline,
+        landing_subtext: landingSubtext,
+        landing_logo: landingLogo,
+        social_facebook: socialFacebook,
+        social_instagram: socialInstagram,
+        social_tiktok: socialTiktok,
+        social_whatsapp: socialWhatsapp,
+        review_link: reviewLink,
+        opening_hours: openingHours,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: tempError } = await supabase
+        .from('menu_templates')
+        .upsert(templatePayload, { onConflict: 'business_id,slug' });
+
+      if (tempError) throw tempError;
+
+      // 3. Sync Categories and Items
+      // Note: To be safe, we'll delete existing ones and re-insert 
+      // OR we could do a complex diff. Bulk re-insert is easier for now.
+      
+      // Delete existing items first (due to FK)
+      await supabase.from('menu_items').delete().eq('business_id', business.id);
+      // Delete existing categories
+      await supabase.from('menu_categories').delete().eq('business_id', business.id);
+
+      // Insert new categories
+      const categoryMap = new Map();
+      for (const cat of categories) {
+        const { data: newCat, error: catError } = await supabase
+          .from('menu_categories')
+          .insert({
+            business_id: business.id,
+            name: cat.name,
+            sort_order: categories.indexOf(cat)
+          })
+          .select()
+          .single();
+        
+        if (catError) throw catError;
+        categoryMap.set(cat.id, newCat.id);
+      }
+
+      // Insert menu items
+      const itemsToInsert = menuItems.map(item => ({
+        business_id: business.id,
+        category_id: categoryMap.get(item.category_id) || null,
+        name: item.name,
+        description: item.description || '',
+        price: parseFloat(item.price) || 0,
+        image_url: item.image_url,
+        sort_order: menuItems.indexOf(item)
+      }));
+
+      if (itemsToInsert.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('menu_items')
+          .insert(itemsToInsert);
+        
+        if (itemsError) throw itemsError;
+      }
+
+      toast.success("Successfully published to live menu!", { id: publishToast });
+    } catch (err: any) {
+      console.error("Publishing error:", err);
+      toast.error(`Failed to publish: ${err.message}`, { id: publishToast });
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const saveMenuData = (items: any[], cats: any[]) => {
@@ -1152,6 +1255,17 @@ export function MenuManagement() {
         </div>
 
         <div className="flex gap-3 shrink-0">
+          {!isEmpty && (
+            <Button 
+              variant="primary" 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg border-indigo-500"
+              onClick={publishToSupabase}
+              disabled={isPublishing}
+            >
+              {isPublishing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <UploadCloud className="w-4 h-4 mr-2" />}
+              Publish to Live
+            </Button>
+          )}
           {activeTab === 'items' && !isEmpty && (
             <Button variant="outline" className="border-slate-200 text-slate-700 bg-white shadow-sm"
               onClick={() => window.open(`/${activeSlug}`, '_blank')}>

@@ -33,9 +33,30 @@ export interface MenuItem {
   category: string;
 }
 
+export interface MenuTemplate {
+  id: string;
+  template_id: string;
+  template_name: string;
+  primary_color: string | null;
+  secondary_color: string | null;
+  cafeteria_subtitle: string | null;
+  footer_handle: string | null;
+  footer_website: string | null;
+  landing_headline: string | null;
+  landing_subtext: string | null;
+  landing_logo: string | null;
+  social_facebook: string | null;
+  social_instagram: string | null;
+  social_tiktok: string | null;
+  social_whatsapp: string | null;
+  review_link: string | null;
+  opening_hours: string | null;
+}
+
 interface PublicBusinessContextType {
   slug: string;
   business: PublicBusiness | null;
+  template: MenuTemplate | null;
   uploadedMenus: UploadedMenu[];
   categories: string[];
   menuItems: MenuItem[];
@@ -52,6 +73,7 @@ interface Props {
 export function PublicBusinessProvider({ children }: Props) {
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const [business, setBusiness] = useState<PublicBusiness | null>(null);
+  const [template, setTemplate] = useState<MenuTemplate | null>(null);
   const [uploadedMenus, setUploadedMenus] = useState<UploadedMenu[]>([]);
   const [categories, setCategories] = useState<string[]>(['All']);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
@@ -76,144 +98,90 @@ export function PublicBusinessProvider({ children }: Props) {
       setLoading(true);
       setError(null);
 
-      // Handle Preview Mode from localStorage
-      if (isPreview) {
-        const bId = previewId || 'local';
-        const menuDataKey = `digitize_menu_data_${bId}`;
-        const templateKey = `digitize_template_${bId === 'local' ? 'default' : bId}`;
-        
-        try {
-          const localMenuJSON = localStorage.getItem(menuDataKey);
-          const localTemplateJSON = localStorage.getItem(templateKey);
-          
-          const cachedMenu = localMenuJSON ? JSON.parse(localMenuJSON) : { items: [], categories: [] };
-          const cachedTemplate = localTemplateJSON ? JSON.parse(localTemplateJSON) : {};
+      try {
+        // 1. Fetch Business Profile
+        const { data: biz, error: bizErr } = await supabase
+          .from('businesses')
+          .select('*')
+          .eq('slug', slug)
+          .single();
 
-          if (isMounted) {
-            setBusiness({
-              id: bId,
-              name: cachedTemplate.templateName || 'My Preview Menu',
-              slug: slug || 'preview',
-              description: cachedTemplate.cafeteriaSubtitle || null,
-              logo_url: null,
-              cover_image_url: null,
-              city: null,
-              phone: null,
-              whatsapp_number: null,
-              primary_color: cachedTemplate.primaryColor || '#6b2d0f',
-            } as PublicBusiness);
-
-            if (cachedMenu.categories?.length) {
-               setCategories(['All', ...cachedMenu.categories.map((c: any) => c.name)]);
-            } else {
-               setCategories(['All']);
-            }
-
-            if (cachedMenu.items?.length) {
-               setMenuItems(cachedMenu.items.map((i: any) => ({
-                 id: i.id,
-                 name: i.name,
-                 description: i.description,
-                 price: i.price,
-                 image_url: i.image_url,
-                 is_featured: i.is_featured,
-                 category: i.category?.name || 'Uncategorized'
-               })));
-            }
-            setLoading(false);
+        if (bizErr || !biz) {
+          // If not found in DB, check localStorage for legacy/draft preview
+          const localProfile = JSON.parse(localStorage.getItem('local_business_profile') || 'null');
+          if (localProfile && localProfile.slug === slug && isMounted) {
+             setBusiness(localProfile as PublicBusiness);
+             setLoading(false);
+             return;
           }
-        } catch(e) {
-          if (isMounted) { setError('Failed to load preview context'); setLoading(false); }
+          throw new Error('Business not found');
         }
-        return;
-      }
 
-      const localProfileJson = localStorage.getItem('local_business_profile');
-      const localMenusJson = localStorage.getItem('local_menus');
-      const localProfile = localProfileJson ? JSON.parse(localProfileJson) : null;
-      const localMenus = localMenusJson ? JSON.parse(localMenusJson) : [];
+        if (isMounted) setBusiness(biz as PublicBusiness);
 
-      // Also check local_qr_codes array to find which slug maps to which menu
-      let localQRs: any[] = [];
-      try { localQRs = JSON.parse(localStorage.getItem('local_qr_codes') || '[]'); } catch {}
-      const matchedQR = localQRs.find((qr: any) => qr.encoded_path === `/${slug}`);
+        // 2. Fetch Template Styles for this slug
+        const { data: temp, error: tempErr } = await supabase
+          .from('menu_templates')
+          .select('*')
+          .eq('business_id', biz.id)
+          .eq('slug', slug)
+          .maybeSingle();
 
-      // Local fallback for a local profile slug or any registered QR slug
-      if ((localProfile && localProfile.slug === slug) || matchedQR) {
-        const effectiveSlug = matchedQR ? slug : localProfile.slug;
-
-        // Try keys in priority order: explicit slug → profile slug → 'local'
-        // This handles data created before multi-QR support (stored under 'local')
-        const candidateMenuKeys = [
-          `digitize_menu_data_${effectiveSlug}`,
-          ...(localProfile?.slug && localProfile.slug !== effectiveSlug ? [`digitize_menu_data_${localProfile.slug}`] : []),
-          'digitize_menu_data_local',
-        ];
-        const candidateTemplateKeys = [
-          `digitize_template_${effectiveSlug}`,
-          ...(localProfile?.slug && localProfile.slug !== effectiveSlug ? [`digitize_template_${localProfile.slug}`] : []),
-          `digitize_template_local`,
-        ];
-
-        let cachedMenu: any = { items: [], categories: [] };
-        let cachedTemplate: any = {};
-
-        for (const key of candidateMenuKeys) {
-          const raw = localStorage.getItem(key);
-          if (raw) { try { const parsed = JSON.parse(raw); if (parsed.items?.length || parsed.categories?.length) { cachedMenu = parsed; break; } } catch {} }
+        if (!tempErr && temp && isMounted) {
+          setTemplate(temp as MenuTemplate);
         }
-        for (const key of candidateTemplateKeys) {
-          const raw = localStorage.getItem(key);
-          if (raw) { try { const parsed = JSON.parse(raw); if (parsed.templateId) { cachedTemplate = parsed; break; } } catch {} }
+
+        // 3. Fetch Uploaded Menus
+        const { data: mns, error: mnsErr } = await supabase
+          .from('business_menus')
+          .select('*')
+          .eq('business_id', biz.id)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (!mnsErr && mns && isMounted) {
+          setUploadedMenus(mns as UploadedMenu[]);
         }
+
+        // 4. Fetch Structured categories & items
+        const { data: cats, error: catsErr } = await supabase
+          .from('menu_categories')
+          .select('*')
+          .eq('business_id', biz.id)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        const { data: items, error: itemsErr } = await supabase
+          .from('menu_items')
+          .select('*, category:menu_categories(name)')
+          .eq('business_id', biz.id)
+          .eq('is_available', true)
+          .order('sort_order', { ascending: true });
 
         if (isMounted) {
-          const profileName = localProfile?.name || cachedTemplate.templateName || 'Menu';
-          setBusiness({
-            id: localProfile?.id ?? 'local-' + slug,
-            name: profileName,
-            slug: effectiveSlug,
-            description: localProfile?.description ?? cachedTemplate.cafeteriaSubtitle ?? null,
-            logo_url: localProfile?.logo_url ?? null,
-            cover_image_url: localProfile?.cover_image_url ?? null,
-            city: localProfile?.city ?? null,
-            phone: localProfile?.phone ?? null,
-            whatsapp_number: localProfile?.whatsapp_number ?? null,
-            primary_color: localProfile?.primary_color ?? cachedTemplate.primaryColor ?? null,
-          } as PublicBusiness);
-
-          const uploadedData = (localMenus || []).map((m: any) => ({
-            id: m.id,
-            label: m.label,
-            file_type: m.file_type,
-            public_url: m.file_url,
-          }));
-          setUploadedMenus(uploadedData);
-
-          // Load structured menu items
-          if (cachedMenu.categories?.length) {
-            setCategories(['All', ...cachedMenu.categories.map((c: any) => c.name)]);
+          if (!catsErr && cats) {
+            setCategories(['All', ...cats.map(c => c.name)]);
           }
-          if (cachedMenu.items?.length) {
-            setMenuItems(cachedMenu.items.map((i: any) => ({
+          if (!itemsErr && items) {
+            setMenuItems(items.map(i => ({
               id: i.id,
               name: i.name,
               description: i.description,
               price: i.price,
               image_url: i.image_url,
               is_featured: i.is_featured,
-              category: i.category?.name || 'Uncategorized',
+              category: (i.category as any)?.name || 'Uncategorized'
             })));
           }
-
-          setLoading(false);
         }
-        return;
-      }
 
-      if (isMounted) {
-        setError('Menu not found');
-        setLoading(false);
+      } catch (err: any) {
+        if (isMounted) {
+          console.error('[PublicBusinessContext] Load error:', err);
+          setError(err.message || 'Failed to load menu');
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
     }
 
@@ -227,6 +195,7 @@ export function PublicBusinessProvider({ children }: Props) {
   const value = {
     slug,
     business,
+    template,
     uploadedMenus,
     categories,
     menuItems,

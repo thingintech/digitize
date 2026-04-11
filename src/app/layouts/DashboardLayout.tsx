@@ -17,15 +17,15 @@ import {
   User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Input, Button, LoadingSpinner } from '../components/ui';
+import { Input, Button, LoadingSpinner, Skeleton } from '../components/ui';
 import logoImg from '/assets/preview.png';
 import { useAuth } from '../context/AuthContext';
-import { useProfile } from '../context/ProfileContext';
+import { useBusiness } from '../context/BusinessContext';
 import { OnboardingWizard } from '../components/OnboardingWizard';
 
 export function DashboardLayout() {
   const { profile, user, signOut, loading: authLoading } = useAuth();
-  const { business, isReady, loading: profileLoading, lifecycle } = useProfile();
+  const { business, isReady, isLoading: businessLoading, lifecycle, refetch } = useBusiness();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -52,7 +52,6 @@ export function DashboardLayout() {
 
   // Wait gracefully for data using the unified loading state merged from both contexts
   const [showRetry, setShowRetry] = useState(false);
-  const { refreshProfile } = useProfile();
 
   React.useEffect(() => {
     if (!isReady) {
@@ -64,12 +63,12 @@ export function DashboardLayout() {
   }, [isReady]);
 
   React.useEffect(() => {
-    if (isReady && !authLoading && !user) {
+    if (isReady && !user) {
       navigate('/login');
     }
-  }, [user, navigate, isReady, authLoading]);
+  }, [user, navigate, isReady]);
 
-  if (!isReady) {
+  if (!isReady && !business) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 transition-colors">
         <div className="flex flex-col items-center gap-6">
@@ -84,7 +83,7 @@ export function DashboardLayout() {
             {showRetry && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-8 flex flex-col items-center gap-3">
                 <p className="text-xs text-red-500/80 font-bold bg-red-500/10 px-3 py-1 rounded-full">Taking longer than expected?</p>
-                <Button variant="secondary" onClick={() => refreshProfile()} className="font-bold border-slate-200">
+                <Button variant="secondary" onClick={() => refetch()} className="font-bold border-slate-200">
                   Force Retry Connection
                 </Button>
               </motion.div>
@@ -122,7 +121,13 @@ export function DashboardLayout() {
             >
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-3">
-                  <img src={business?.logo_url || logoImg} alt="Logo" className="w-8 h-8 rounded-xl object-cover" />
+                  <div className="w-8 h-8 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center overflow-hidden shrink-0">
+                    {business?.logo_url ? (
+                      <img src={business.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-purple-600 dark:text-purple-400 font-bold text-xs">{business?.name?.[0] || 'D'}</span>
+                    )}
+                  </div>
                   <span className="font-black text-xl tracking-tighter">DIGITIZE</span>
                 </div>
                 <Button variant="ghost" size="sm" onClick={() => setIsMobileMenuOpen(false)} className="rounded-xl">
@@ -163,7 +168,9 @@ export function DashboardLayout() {
         <div className="px-6 py-6">
           <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/60 shadow-sm flex items-center gap-3 transition-all hover:border-purple-200 dark:hover:border-purple-800">
             <div className="w-10 h-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center overflow-hidden shrink-0">
-              {business?.logo_url ? (
+              {businessLoading ? (
+                <Skeleton className="w-full h-full" />
+              ) : business?.logo_url ? (
                 <img src={business.logo_url} alt="Logo" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-purple-600 dark:text-purple-400 font-bold">{business?.name?.[0] || 'D'}</span>
@@ -171,7 +178,11 @@ export function DashboardLayout() {
             </div>
             <div className="flex-1 overflow-hidden">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 text-ellipsis overflow-hidden">Workspace</p>
-              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{business?.name || 'Loading...'}</p>
+              {businessLoading ? (
+                <Skeleton className="h-4 w-24 mt-1" />
+              ) : (
+                <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{business?.name || 'No Business'}</p>
+              )}
             </div>
           </div>
         </div>
@@ -195,7 +206,7 @@ export function DashboardLayout() {
               </div>
               <div className="flex-1 overflow-hidden">
                 <p className="text-xs text-slate-400 font-medium">Account</p>
-                <p className="text-sm font-bold text-white truncate">{profile?.full_name || 'Admin User'}</p>
+                <p className="text-sm font-bold text-white truncate">{profile?.full_name || user?.email?.split('@')[0] || 'User'}</p>
               </div>
               <button
                 onClick={handleSignOut}
@@ -266,6 +277,20 @@ export function DashboardLayout() {
         </header>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-50/30 dark:bg-slate-900/10">
+          {lifecycle === 'degraded' && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-900/50 px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-600 text-sm font-medium">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-yellow-500"></span>
+                </span>
+                Connection interrupted. Working offline with cached data.
+              </div>
+              <Button size="sm" variant="outline" className="h-8 border-yellow-200 text-yellow-700 bg-white" onClick={() => refetch()}>
+                Retry Connection
+              </Button>
+            </div>
+          )}
           <div className="max-w-7xl mx-auto p-6 md:p-10 min-h-full">
             <Outlet />
           </div>
